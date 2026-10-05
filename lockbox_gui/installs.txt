@@ -1,0 +1,10 @@
+# One-time per Pi: install uv
+curl -LsSf https://astral.sh/uv/install.sh | sh
+source $HOME/.local/bin/env   # or restart your shell
+
+# Tkinter bindings are a system package, not pip/uv-installable
+sudo apt update && sudo apt install -y python3-tk i2c-tools
+
+# From the project directory (containing pyproject.toml + uv.lock):
+uv sync
+uv run python3 autolock_gui.py

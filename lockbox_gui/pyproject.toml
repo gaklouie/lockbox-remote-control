@@ -1,0 +1,14 @@
+[project]
+name = "autolock-project"
+version = "0.1.0"
+description = "MCP4728/ADS1115 DAC-ADC autolock scripts and GUI"
+requires-python = ">=3.9"
+dependencies = [
+    "adafruit-blinka",
+    "adafruit-circuitpython-mcp4728",
+    "adafruit-circuitpython-ads1x15",
+    "paho-mqtt",
+    "python-dotenv",
+    "numpy",
+    "matplotlib",
+]
