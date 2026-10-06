@@ -70,8 +70,6 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolb
 import tkinter as tk
 from tkinter import ttk, messagebox
 
-app_icon = tk.PhotoImage(file="icon.png")
-
 
 import board
 import busio
@@ -982,7 +980,9 @@ class MainApp(tk.Tk):
         self.title("Autolock Control GUI")
         self.geometry("1100x950")
 
-        self.iconphoto(True, app_icon)
+        self.app_icon = tk.PhotoImage(file="icon.png")
+
+        self.iconphoto(True, self.app_icon)
 
         notebook = ttk.Notebook(self)
         notebook.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
