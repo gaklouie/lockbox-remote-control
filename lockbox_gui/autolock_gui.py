@@ -71,6 +71,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolb
 
 import tkinter as tk
 from tkinter import ttk, messagebox
+from ttkthemes import ThemedTk
 
 import board
 import busio
@@ -611,6 +612,8 @@ class LiveMonitorPanel(ttk.Frame):
 
     MAX_POINTS = 300
     MAX_LOG_LINES = 500
+    MIN_REDRAW_INTERVAL = 0.2  # seconds; caps the actual canvas redraw rate at ~5 Hz,
+                                # independent of how fast readings are arriving
 
     def __init__(self, parent):
         super().__init__(parent)
@@ -618,6 +621,15 @@ class LiveMonitorPanel(ttk.Frame):
         self.times = deque(maxlen=self.MAX_POINTS)
         self.series = {name: deque(maxlen=self.MAX_POINTS) for name in CHANNEL_CONVERTERS}
         self.t0 = time.time()
+
+        # Whether this tab is the one currently selected in the Notebook.
+        # MainApp updates this on tab-change; redraw_plots() skips the
+        # (expensive) matplotlib work entirely while it's False, since
+        # FigureCanvasTkAgg still does full CPU-bound rasterization on
+        # draw_idle() even for a hidden/unmapped tab - there's no point
+        # paying that cost for a plot nobody can see.
+        self.is_visible = False
+        self._last_redraw_time = 0.0
 
         plots_frame = ttk.Frame(self)
         plots_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
@@ -706,8 +718,24 @@ class LiveMonitorPanel(ttk.Frame):
             line_str = " ".join(f"{k}={v:.4f}" for k, v in values.items())
             log_buffer.append(f"[{time.strftime('%H:%M:%S')}] {line_str}")
 
-    def redraw_plots(self):
-        """Push the current deque contents onto the lines and redraw once."""
+    def redraw_plots(self, force=False):
+        """
+        Push the current deque contents onto the lines and redraw - unless
+        this tab isn't currently visible, or we redrew too recently, in
+        which case skip entirely (data is still safely accumulating in the
+        deques via record_reading(); nothing is lost, we just don't pay
+        for a redraw nobody benefits from). Pass force=True to redraw
+        unconditionally, e.g. right after this tab becomes visible, so the
+        view catches up immediately rather than waiting for the next tick.
+        """
+        if not force:
+            if not self.is_visible:
+                return
+            now = time.time()
+            if now - self._last_redraw_time < self.MIN_REDRAW_INTERVAL:
+                return
+        self._last_redraw_time = time.time()
+
         for name, line in self.lines_out.items():
             line.set_data(self.times, self.series[name])
         for name, line in self.lines_err.items():
@@ -1056,12 +1084,9 @@ class SettingsTab(ttk.Frame):
         ).start()
 
 
-class MainApp(tk.Tk):
+class MainApp(ThemedTk):
     def __init__(self):
-        # Plain Tk, no ttk theming at all - temporary diagnostic revert to
-        # isolate whether a theme (Clearlooks, or ttk theming in general)
-        # was ever actually the cause of the tab-switch/entry-focus lag.
-        super().__init__()
+        super().__init__(theme="clearlooks")
         self.title("Autolock Control GUI")
         self.geometry("1150x850")
 
@@ -1077,12 +1102,23 @@ class MainApp(tk.Tk):
         notebook.add(self.scan_tab, text="Scan & Lock")
         notebook.add(self.settings_tab, text="Autolock Settings")
         notebook.add(self.monitor_panel, text="Live Monitor")
+        self.notebook = notebook
+        notebook.bind("<<NotebookTabChanged>>", self.on_tab_changed)
 
         self.protocol("WM_DELETE_WINDOW", self.on_close)
         self.after(100, self.poll_queue)
 
         self.monitor_thread = threading.Thread(target=monitor_loop, daemon=True)
         self.monitor_thread.start()
+
+    def on_tab_changed(self, event):
+        selected_widget = self.nametowidget(self.notebook.select())
+        is_monitor = selected_widget is self.monitor_panel
+        self.monitor_panel.is_visible = is_monitor
+        if is_monitor:
+            # Catch the view up immediately rather than waiting for the
+            # next reading to trickle in and trigger a redraw.
+            self.monitor_panel.redraw_plots(force=True)
 
     def poll_queue(self):
         """
