@@ -690,12 +690,25 @@ class LiveMonitorPanel(ttk.Frame):
         self.canvas_out.draw_idle()
         self.canvas_err.draw_idle()
 
-    def add_reading(self, timestamp, values):
+    def record_reading(self, timestamp, values, log_buffer=None):
+        """
+        Cheap, data-only update: append to the history deques (and
+        optionally a log-line buffer). Does NOT touch the canvases or the
+        log widget - call redraw_plots() / log_many() separately, once per
+        batch, rather than once per reading. This is what keeps a fast
+        stream of readings (e.g. during a scan) from forcing a full
+        matplotlib redraw on every single point.
+        """
         t = timestamp - self.t0
         self.times.append(t)
         for name, val in values.items():
             self.series[name].append(val)
+        if log_buffer is not None:
+            line_str = " ".join(f"{k}={v:.4f}" for k, v in values.items())
+            log_buffer.append(f"[{time.strftime('%H:%M:%S')}] {line_str}")
 
+    def redraw_plots(self):
+        """Push the current deque contents onto the lines and redraw once."""
         for name, line in self.lines_out.items():
             line.set_data(self.times, self.series[name])
         for name, line in self.lines_err.items():
@@ -719,12 +732,16 @@ class LiveMonitorPanel(ttk.Frame):
         self.canvas_out.draw_idle()
         self.canvas_err.draw_idle()
 
-        line_str = " ".join(f"{k}={v:.4f}" for k, v in values.items())
-        self.log(f"[{time.strftime('%H:%M:%S')}] {line_str}")
-
     def log(self, message):
+        self.log_many([message])
+
+    def log_many(self, messages):
+        """Insert several log lines in one Text widget operation, and do
+        the overflow-trim/scroll-to-end just once, instead of per line."""
+        if not messages:
+            return
         self.log_text.configure(state="normal")
-        self.log_text.insert(tk.END, message + "\n")
+        self.log_text.insert(tk.END, "\n".join(messages) + "\n")
         num_lines = int(self.log_text.index("end-1c").split(".")[0])
         if num_lines > self.MAX_LOG_LINES:
             self.log_text.delete("1.0", f"{num_lines - self.MAX_LOG_LINES}.0")
@@ -1066,24 +1083,47 @@ class MainApp(ThemedTk):
         self.monitor_thread.start()
 
     def poll_queue(self):
+        """
+        Drain everything currently queued, but only touch the expensive
+        stuff (matplotlib redraws, progress bar, log widget) ONCE per
+        call - regardless of how many readings arrived this tick. During a
+        fast scan, dozens of "reading" messages can pile up between ticks;
+        updating the plot/log for each one individually is what made the
+        GUI feel slow, especially on Windows where Tk's canvas blitting is
+        already the slower path. Batching keeps the redraw rate capped at
+        roughly 1 / (after-delay) regardless of data rate.
+        """
+        had_reading = False
+        log_lines = []
+        latest_progress = None
+
         try:
             while True:
                 item = gui_queue.get_nowait()
                 kind = item[0]
                 if kind == "reading":
                     _, timestamp, values = item
-                    self.monitor_panel.add_reading(timestamp, values)
+                    self.monitor_panel.record_reading(timestamp, values, log_lines)
+                    had_reading = True
                 elif kind == "log":
                     _, message = item
-                    self.monitor_panel.log(message)
+                    log_lines.append(message)
                 elif kind == "scan_progress":
                     _, i, total = item
-                    self.scan_tab.on_scan_progress(i, total)
+                    latest_progress = (i, total)
                 elif kind == "scan_done":
                     _, data = item
                     self.scan_tab.on_scan_done(data)
         except queue.Empty:
             pass
+
+        if had_reading:
+            self.monitor_panel.redraw_plots()
+        if log_lines:
+            self.monitor_panel.log_many(log_lines)
+        if latest_progress is not None:
+            self.scan_tab.on_scan_progress(*latest_progress)
+
         self.after(100, self.poll_queue)
 
     def on_close(self):
