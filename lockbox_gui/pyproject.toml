@@ -11,5 +11,4 @@ dependencies = [
     "python-dotenv",
     "numpy",
     "matplotlib",
-    "ttkthemes",
 ]

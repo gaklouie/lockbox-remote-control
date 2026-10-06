@@ -55,7 +55,6 @@ Tkinter ships with most Python installs; if missing on Raspberry Pi OS:
 import os
 import json
 import time
-import platform
 import threading
 import queue
 from collections import deque
@@ -72,7 +71,6 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolb
 
 import tkinter as tk
 from tkinter import ttk, messagebox
-from ttkthemes import ThemedTk
 
 import board
 import busio
@@ -1058,24 +1056,12 @@ class SettingsTab(ttk.Frame):
         ).start()
 
 
-class MainApp(ThemedTk):
+class MainApp(tk.Tk):
     def __init__(self):
-        # Clearlooks is a pixmap/gradient-drawn theme (ported from GTK) -
-        # every widget redraw (a tab becoming visible, an Entry gaining
-        # focus) costs noticeably more than with a flatly-drawn theme, and
-        # that cost is most visible on Windows and especially over an
-        # X11-forwarded SSH session, where more drawing work means more
-        # data crossing the connection. Prefer a fast theme instead:
-        # Windows' own native "vista" theme when this process is actually
-        # running on Windows (Tk calls straight into the OS, very cheap),
-        # otherwise ttk's built-in "clam" (flat, no custom pixmaps - much
-        # friendlier to X11 forwarding than Clearlooks). Falls back to
-        # whatever ttkthemes' default is if neither is available.
-        preferred_theme = "vista" if platform.system() == "Windows" else "clam"
-        try:
-            super().__init__(theme=preferred_theme)
-        except Exception:
-            super().__init__()
+        # Plain Tk, no ttk theming at all - temporary diagnostic revert to
+        # isolate whether a theme (Clearlooks, or ttk theming in general)
+        # was ever actually the cause of the tab-switch/entry-focus lag.
+        super().__init__()
         self.title("Autolock Control GUI")
         self.geometry("1150x850")
 

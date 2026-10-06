@@ -143,7 +143,6 @@ dependencies = [
     { name = "paho-mqtt" },
     { name = "python-dotenv", version = "1.2.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
     { name = "python-dotenv", version = "1.2.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
-    { name = "ttkthemes" },
 ]
 
 [package.metadata]
@@ -155,7 +154,6 @@ requires-dist = [
     { name = "numpy" },
     { name = "paho-mqtt" },
     { name = "python-dotenv" },
-    { name = "ttkthemes" },
 ]
 
 [[package]]
@@ -1835,16 +1833,6 @@ sdist = { url = "https://files.pythonhosted.org/packages/be/ba/1f744cdc819428fc6
 wheels = [
     { url = "https://files.pythonhosted.org/packages/44/6f/7120676b6d73228c96e17f1f794d8ab046fc910d781c8d151120c3f1569e/toml-0.10.2-py2.py3-none-any.whl", hash = "sha256:806143ae5bfb6a3c6e736a764057db0e6a0e05e338b5630894a5f779cabb4f9b", size = 16588, upload-time = "2020-11-01T01:40:20.672Z" },
 ]
-
-[[package]]
-name = "ttkthemes"
-version = "3.3.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "pillow", version = "11.3.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
-    { name = "pillow", version = "12.3.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/49/ad/675d46fb613b80c2e0d1b195df1991a76ff42c8b5481d1c5730418945c0b/ttkthemes-3.3.0.tar.gz", hash = "sha256:a0b74087aa3bfa2ef159599376642f288d5c624073c6aaceb4d16359de0851b6", size = 891050, upload-time = "2025-11-09T12:18:10.813Z" }
 
 [[package]]
 name = "typing-extensions"
