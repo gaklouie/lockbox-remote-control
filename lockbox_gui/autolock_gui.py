@@ -82,7 +82,7 @@ from adafruit_ads1x15.analog_in import AnalogIn
 # --------------------------------------------------------------------------
 load_dotenv(".env")
 
-mqttTopic = "experiment/sensor/ncc-1701/adc"
+mqttTopic = "experiment/sensor/ncc-1701/lockbox1"
 mqttBrokerAddress = os.environ.get("ADDRESS")
 mqttPort = int(os.environ.get("MQTT_PORT", 1883))
 credentials = {
