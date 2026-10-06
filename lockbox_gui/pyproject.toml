@@ -11,4 +11,5 @@ dependencies = [
     "python-dotenv",
     "numpy",
     "matplotlib",
+    "rpi-gpio>=0.7.1",
 ]
