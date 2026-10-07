@@ -16,6 +16,9 @@ Expects a .env file with (same as your other MQTT programs):
     MQTT_USERNAME=<username>
     PASSWORD=<password>
     MQTT_PORT=1883          # optional, defaults to 1883 if not set
+
+
+    old
 """
 
 import os
