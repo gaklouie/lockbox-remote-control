@@ -60,9 +60,14 @@ class Settings:
     # --- Scan parameters ---
     SCAN_MIN_VOLTAGE: float = 0.0    # control out, PHYSICAL volts
     SCAN_MAX_VOLTAGE: float = 4.0    # control out, PHYSICAL volts
-    NUM_COARSE_POINTS: int = 51
+    ADAPTIVE_SCAN: bool = True       # vary point spacing with how fast the signal changes
+    SCAN_MAX_STEP: float = 0.04      # adaptive: largest step, PHYSICAL volts - keep it below the
+                                     # width of the narrowest feature, or the sweep can step over it
+    SCAN_MIN_STEP: float = 0.005     # adaptive: smallest step, PHYSICAL volts
+    ADAPTIVE_TARGET_CHANGE: float = 0.2  # adaptive: aim for this much signal change (V) per step
+    NUM_COARSE_POINTS: int = 51      # uniform scans only
     NUM_FINE_POINTS: int = 41
-    MANUAL_SCAN_POINTS: int = 101
+    MANUAL_SCAN_POINTS: int = 101    # uniform scans only
     SCAN_SETTLE_TIME: float = 0.01
     NUM_SAMPLES_PER_POINT: int = 5
     SMOOTHING_WINDOW: int = 3
@@ -70,6 +75,7 @@ class Settings:
     # --- General program parameters ---
     AUTOLOCK_MODE: str = "zero_crossing"   # "zero_crossing" or "dc_err_range"
     CROSSING_SIGN: str = "positive"        # "positive", "negative", or "both"
+    MIN_CROSSING_SLOPE_FRACTION: float = 0.1  # ignore crossings shallower than this x the steepest one
     RESET_VOLTAGE_ON_FAILURE: float = 2.0  # control out, PHYSICAL volts
     PRIME_SETTLE_TIME: float = 0.1
     MONITOR_INTERVAL: float = 0.2          # fast: GUI display sampling rate (s)
@@ -98,6 +104,9 @@ MINIMUMS = {
     "NUM_COARSE_POINTS": 2,
     "NUM_FINE_POINTS": 2,
     "MANUAL_SCAN_POINTS": 2,
+    "SCAN_MAX_STEP": 1e-4,
+    "SCAN_MIN_STEP": 1e-4,
+    "ADAPTIVE_TARGET_CHANGE": 1e-4,
     "NUM_SAMPLES_PER_POINT": 1,
     "SMOOTHING_WINDOW": 1,
     "SCAN_SETTLE_TIME": 0.0,
@@ -106,13 +115,18 @@ MINIMUMS = {
     "LOG_INTERVAL": 0.01,
     "LOCK_RETRY_DELAY": 0.0,
     "LIVE_MONITOR_TIME_SPAN": 1.0,
+    "MIN_CROSSING_SLOPE_FRACTION": 0.0,
+}
+
+MAXIMUMS = {
+    "MIN_CROSSING_SLOPE_FRACTION": 1.0,
 }
 
 
 def coerce_value(field_name, raw):
     """
     Convert a raw value (a GUI entry string, or a value read from JSON) to
-    the field's declared type, enforcing CHOICES and MINIMUMS. Raises
+    the field's declared type, enforcing CHOICES, MINIMUMS and MAXIMUMS. Raises
     ValueError with a readable message if the value isn't acceptable.
     """
     field_type = FIELD_TYPES[field_name]
@@ -132,6 +146,8 @@ def coerce_value(field_name, raw):
         raise ValueError(f"{field_name} must be one of {CHOICES[field_name]}, got {value!r}")
     if field_name in MINIMUMS and value < MINIMUMS[field_name]:
         raise ValueError(f"{field_name} must be >= {MINIMUMS[field_name]}, got {value}")
+    if field_name in MAXIMUMS and value > MAXIMUMS[field_name]:
+        raise ValueError(f"{field_name} must be <= {MAXIMUMS[field_name]}, got {value}")
     return value
 
 

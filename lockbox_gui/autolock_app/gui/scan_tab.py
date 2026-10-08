@@ -10,7 +10,7 @@ from matplotlib.figure import Figure
 from .. import hardware, state
 from ..channels import ERROR_SIGNAL_NAMES, OUTPUT_SIGNAL_NAMES
 from ..config import coerce_value, settings
-from ..plotting import place_legend_outside
+from ..plotting import SIGNAL_COLORS, draw_safe_range_bars, place_legend_outside
 from ..workers import run_manual_scan
 
 
@@ -37,7 +37,12 @@ class ScanTab(ttk.Frame):
 
         ttk.Label(controls, text="Points").grid(row=0, column=4, sticky="w")
         self.points_var = tk.StringVar()
-        ttk.Entry(controls, textvariable=self.points_var, width=8).grid(row=0, column=5)
+        self.points_entry = ttk.Entry(controls, textvariable=self.points_var, width=8)
+        self.points_entry.grid(row=0, column=5)
+
+        self.adaptive_var = tk.BooleanVar()
+        ttk.Checkbutton(controls, text="Adaptive spacing", variable=self.adaptive_var,
+                        command=self._update_points_entry).grid(row=0, column=6, sticky="w", padx=(12, 0))
 
         ttk.Label(controls, text="Lock mode:").grid(row=1, column=0, sticky="w", pady=(6, 0))
         self.mode_var = tk.StringVar(value=settings.AUTOLOCK_MODE)
@@ -58,8 +63,19 @@ class ScanTab(ttk.Frame):
         self.scan_button = ttk.Button(controls, text="Run Scan", command=self.on_run_scan)
         self.scan_button.grid(row=1, column=5, padx=(12, 0), pady=(6, 0))
 
-        self.progress = ttk.Progressbar(controls, orient="horizontal", length=160, mode="determinate")
+        self.progress = ttk.Progressbar(controls, orient="horizontal", length=160, mode="determinate",
+                                        maximum=1.0)
         self.progress.grid(row=1, column=6, padx=(8, 0), pady=(6, 0))
+
+        # Constant output, directly under Run Scan: hold control out at a fixed
+        # physical voltage instead of scanning/locking.
+        ttk.Button(controls, text="Set Output", command=self.on_set_constant).grid(
+            row=2, column=5, padx=(12, 0), pady=(4, 0), sticky="ew")
+        constant_frame = ttk.Frame(controls)
+        constant_frame.grid(row=2, column=6, padx=(8, 0), pady=(4, 0), sticky="w")
+        self.constant_var = tk.StringVar()
+        ttk.Entry(constant_frame, textvariable=self.constant_var, width=8).pack(side=tk.LEFT)
+        ttk.Label(constant_frame, text="V physical (control out only)").pack(side=tk.LEFT, padx=(4, 0))
 
         fig = Figure(figsize=(10, 6))
         self.ax_err = fig.add_subplot(211)
@@ -83,14 +99,6 @@ class ScanTab(ttk.Frame):
         ttk.Button(bottom, text="Lock to Selected", command=self.on_lock_selected).pack(side=tk.LEFT, padx=4)
         ttk.Button(bottom, text="Release (restart PID)", command=self.on_release).pack(side=tk.LEFT, padx=4)
 
-        constant_row = ttk.Frame(self)
-        constant_row.pack(side=tk.TOP, fill=tk.X, padx=6, pady=(0, 6))
-        ttk.Label(constant_row, text="Constant output (physical V):").pack(side=tk.LEFT)
-        self.constant_var = tk.StringVar()
-        ttk.Entry(constant_row, textvariable=self.constant_var, width=10).pack(side=tk.LEFT, padx=(6, 6))
-        ttk.Button(constant_row, text="Set Output", command=self.on_set_constant).pack(side=tk.LEFT, padx=4)
-        ttk.Label(constant_row, text="(sets control out only; B/C/D unchanged)").pack(side=tk.LEFT, padx=6)
-
         self.refresh_from_settings()
 
     def refresh_from_settings(self):
@@ -98,7 +106,13 @@ class ScanTab(ttk.Frame):
         self.min_var.set(str(settings.SCAN_MIN_VOLTAGE))
         self.max_var.set(str(settings.SCAN_MAX_VOLTAGE))
         self.points_var.set(str(settings.MANUAL_SCAN_POINTS))
+        self.adaptive_var.set(settings.ADAPTIVE_SCAN)
+        self._update_points_entry()
         self.constant_var.set(str(settings.CONSTANT_OUTPUT_VOLTAGE))
+
+    def _update_points_entry(self):
+        """The point count only applies to uniform scans; grey it out for adaptive ones."""
+        self.points_entry.configure(state="disabled" if self.adaptive_var.get() else "normal")
 
     def on_run_scan(self):
         reason = state.busy_reason()
@@ -118,21 +132,23 @@ class ScanTab(ttk.Frame):
         settings.SCAN_MIN_VOLTAGE = v_min
         settings.SCAN_MAX_VOLTAGE = v_max
         settings.MANUAL_SCAN_POINTS = num_points
+        settings.ADAPTIVE_SCAN = self.adaptive_var.get()
         self.app.settings_tab.refresh_from_settings()
         self.app.save_settings()
 
         self.candidate_list.delete(0, tk.END)
-        self.progress.configure(maximum=num_points, value=0)
+        self.progress.configure(value=0)
         self.scan_button.configure(state="disabled")
 
         threading.Thread(
             target=run_manual_scan,
-            args=(v_min, v_max, num_points, self.mode_var.get(), self.sign_var.get()),
+            args=(v_min, v_max, num_points, self.mode_var.get(), self.sign_var.get(),
+                  settings.ADAPTIVE_SCAN),
             daemon=True,
         ).start()
 
-    def on_scan_progress(self, i, total):
-        self.progress.configure(value=i)
+    def on_scan_progress(self, fraction):
+        self.progress.configure(value=fraction)
 
     def on_scan_done(self, data):
         """Plot a finished scan. `data` is None if the scan failed."""
@@ -147,10 +163,10 @@ class ScanTab(ttk.Frame):
         self.ax_err.clear()
         self.ax_out.clear()
 
-        self.ax_err.axhspan(settings.DC_ERR_SAFE_MIN, settings.DC_ERR_SAFE_MAX,
-                            color="tab:green", alpha=0.15, label="dc_err safe range")
+        # Small markers show where the (possibly adaptive) scan actually sampled.
         for name in ERROR_SIGNAL_NAMES:
-            self.ax_err.plot(data["voltages"], data["trace"][name], label=name, alpha=0.6)
+            self.ax_err.plot(data["voltages"], data["trace"][name], ".-", markersize=3,
+                             color=SIGNAL_COLORS[name], label=name, alpha=0.6)
         self.ax_err.plot(data["voltages"], data["signal_smoothed"], "k-",
                          label=f"{'error' if mode == 'zero_crossing' else 'dc_err'} (smoothed)")
 
@@ -174,22 +190,26 @@ class ScanTab(ttk.Frame):
 
         self.ax_err.set_xlabel("control out, physical (V)")
         self.ax_err.set_ylabel("error signals (V)")
-        place_legend_outside(self.ax_err)
+        bars, handles = draw_safe_range_bars(self.ax_err, [
+            ("dc_err", settings.DC_ERR_SAFE_MIN, settings.DC_ERR_SAFE_MAX),
+        ])
+        place_legend_outside(self.ax_err, extra_handles=handles, n_bars=len(bars))
         self.ax_err.grid(True, alpha=0.3)
 
-        self.ax_out.axhspan(settings.SLOW_OUTPUT_SAFE_MIN, settings.SLOW_OUTPUT_SAFE_MAX,
-                            color="tab:blue", alpha=0.12, label="slow_output safe range")
-        self.ax_out.axhspan(settings.FAST_OUTPUT_SAFE_MIN, settings.FAST_OUTPUT_SAFE_MAX,
-                            color="tab:orange", alpha=0.12, label="fast_output safe range")
         for name in OUTPUT_SIGNAL_NAMES:
-            self.ax_out.plot(data["voltages"], data["trace"][name], label=name)
+            self.ax_out.plot(data["voltages"], data["trace"][name], ".-", markersize=3,
+                             color=SIGNAL_COLORS[name], label=name)
         self.ax_out.set_xlabel("control out, physical (V)")
         self.ax_out.set_ylabel("outputs (V)")
-        place_legend_outside(self.ax_out)
+        bars, handles = draw_safe_range_bars(self.ax_out, [
+            ("slow_output", settings.SLOW_OUTPUT_SAFE_MIN, settings.SLOW_OUTPUT_SAFE_MAX),
+            ("fast_output", settings.FAST_OUTPUT_SAFE_MIN, settings.FAST_OUTPUT_SAFE_MAX),
+        ])
+        place_legend_outside(self.ax_out, extra_handles=handles, n_bars=len(bars))
         self.ax_out.grid(True, alpha=0.3)
 
         self.fig.tight_layout()
-        self.fig.subplots_adjust(right=0.78)
+        self.fig.subplots_adjust(right=0.75)
         self.canvas.draw_idle()
 
         for idx, c in enumerate(self.current_candidates):

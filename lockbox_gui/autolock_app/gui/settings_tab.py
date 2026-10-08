@@ -23,13 +23,18 @@ class SettingsTab(ttk.Frame):
     SCAN_FIELDS = {
         "SCAN_MIN_VOLTAGE": "Scan output min (physical V)",
         "SCAN_MAX_VOLTAGE": "Scan output max (physical V)",
-        "NUM_COARSE_POINTS": "Coarse pass points",
+        "ADAPTIVE_SCAN": "Adaptive point spacing",
+        "SCAN_MAX_STEP": "Adaptive max step (physical V)",
+        "SCAN_MIN_STEP": "Adaptive min step (physical V)",
+        "ADAPTIVE_TARGET_CHANGE": "Adaptive target change/step (V)",
+        "NUM_COARSE_POINTS": "Coarse pass points (uniform only)",
         "NUM_FINE_POINTS": "Fine pass points",
         "SCAN_SETTLE_TIME": "Settle time (s)",
         "NUM_SAMPLES_PER_POINT": "Samples averaged/point",
         "SMOOTHING_WINDOW": "Smoothing window (1 = off)",
     }
     GENERAL_FIELDS = {
+        "MIN_CROSSING_SLOPE_FRACTION": "Min crossing slope (x steepest, 0-1)",
         "RESET_VOLTAGE_ON_FAILURE": "Reset voltage on failure (physical V)",
         "PRIME_SETTLE_TIME": "Prime (short caps) settle time (s)",
         "MONITOR_INTERVAL": "Monitor sample interval (s)",
@@ -80,7 +85,7 @@ class SettingsTab(ttk.Frame):
         button_row = ttk.Frame(self)
         button_row.pack(side=tk.TOP, fill=tk.X, padx=10, pady=10)
 
-        ttk.Button(button_row, text="Apply && Save Settings", command=self.on_apply).pack(side=tk.LEFT, padx=4)
+        ttk.Button(button_row, text="Apply & Save Settings", command=self.on_apply).pack(side=tk.LEFT, padx=4)
 
         self.engage_var = tk.StringVar(value="Engage Autolock")
         self.engage_button = ttk.Button(button_row, textvariable=self.engage_var, command=self.on_toggle_engage)
@@ -125,6 +130,8 @@ class SettingsTab(ttk.Frame):
             new_values = {name: coerce_value(name, var.get()) for name, var in self.vars.items()}
             new_values["AUTOLOCK_MODE"] = coerce_value("AUTOLOCK_MODE", self.mode_var.get())
             new_values["CROSSING_SIGN"] = coerce_value("CROSSING_SIGN", self.sign_var.get())
+            if new_values["SCAN_MIN_STEP"] > new_values["SCAN_MAX_STEP"]:
+                raise ValueError("adaptive min step must not exceed max step")
         except ValueError as exc:
             messagebox.showerror("Invalid input", f"Could not parse a field: {exc}")
             return False

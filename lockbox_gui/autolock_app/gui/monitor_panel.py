@@ -10,7 +10,7 @@ from matplotlib.figure import Figure
 
 from ..channels import CHANNEL_CONVERTERS, ERROR_SIGNAL_NAMES, OUTPUT_SIGNAL_NAMES
 from ..config import settings
-from ..plotting import place_legend_outside
+from ..plotting import SIGNAL_COLORS, draw_safe_range_bars, place_legend_outside
 
 
 class LiveMonitorPanel(ttk.Frame):
@@ -46,12 +46,12 @@ class LiveMonitorPanel(ttk.Frame):
         self.ax_out = fig_out.add_subplot(111)
         self.lines_out = {}
         for name in OUTPUT_SIGNAL_NAMES:
-            (line,) = self.ax_out.plot([], [], label=name)
+            (line,) = self.ax_out.plot([], [], color=SIGNAL_COLORS[name], label=name)
             self.lines_out[name] = line
         self.ax_out.set_xlabel("time (s)")
         self.ax_out.set_ylabel("volts")
         self.ax_out.grid(True, alpha=0.3)
-        fig_out.subplots_adjust(right=0.72)
+        fig_out.subplots_adjust(right=0.69)
         self.canvas_out = FigureCanvasTkAgg(fig_out, master=out_frame)
         self.canvas_out.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 
@@ -61,17 +61,17 @@ class LiveMonitorPanel(ttk.Frame):
         self.ax_err = fig_err.add_subplot(111)
         self.lines_err = {}
         for name in ERROR_SIGNAL_NAMES:
-            (line,) = self.ax_err.plot([], [], label=name)
+            (line,) = self.ax_err.plot([], [], color=SIGNAL_COLORS[name], label=name)
             self.lines_err[name] = line
         self.ax_err.set_xlabel("time (s)")
         self.ax_err.set_ylabel("volts")
         self.ax_err.grid(True, alpha=0.3)
-        fig_err.subplots_adjust(right=0.72)
+        fig_err.subplots_adjust(right=0.69)
         self.canvas_err = FigureCanvasTkAgg(fig_err, master=err_frame)
         self.canvas_err.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 
-        self.out_band_patches = []
-        self.err_band_patches = []
+        self.out_bars = []
+        self.err_bars = []
         self.refresh_safe_bands()
 
         log_frame = ttk.Frame(self)
@@ -83,26 +83,20 @@ class LiveMonitorPanel(ttk.Frame):
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
     def refresh_safe_bands(self):
-        for patch in self.out_band_patches:
-            patch.remove()
-        self.out_band_patches = []
-        for patch in self.err_band_patches:
-            patch.remove()
-        self.err_band_patches = []
+        """(Re)draw the safe-range bars beside each plot from the current settings."""
+        for bar in self.out_bars + self.err_bars:
+            bar.remove()
 
-        out_bands = [
-            ("slow_output", settings.SLOW_OUTPUT_SAFE_MIN, settings.SLOW_OUTPUT_SAFE_MAX, "tab:blue"),
-            ("fast_output", settings.FAST_OUTPUT_SAFE_MIN, settings.FAST_OUTPUT_SAFE_MAX, "tab:orange"),
-        ]
-        for name, lo, hi, color in out_bands:
-            patch = self.ax_out.axhspan(lo, hi, color=color, alpha=0.12, label=f"{name} safe range")
-            self.out_band_patches.append(patch)
-        place_legend_outside(self.ax_out)
+        self.out_bars, handles = draw_safe_range_bars(self.ax_out, [
+            ("slow_output", settings.SLOW_OUTPUT_SAFE_MIN, settings.SLOW_OUTPUT_SAFE_MAX),
+            ("fast_output", settings.FAST_OUTPUT_SAFE_MIN, settings.FAST_OUTPUT_SAFE_MAX),
+        ])
+        place_legend_outside(self.ax_out, extra_handles=handles, n_bars=len(self.out_bars))
 
-        patch = self.ax_err.axhspan(settings.DC_ERR_SAFE_MIN, settings.DC_ERR_SAFE_MAX,
-                                    color="tab:green", alpha=0.12, label="dc_err safe range")
-        self.err_band_patches.append(patch)
-        place_legend_outside(self.ax_err)
+        self.err_bars, handles = draw_safe_range_bars(self.ax_err, [
+            ("dc_err", settings.DC_ERR_SAFE_MIN, settings.DC_ERR_SAFE_MAX),
+        ])
+        place_legend_outside(self.ax_err, extra_handles=handles, n_bars=len(self.err_bars))
 
         self.canvas_out.draw_idle()
         self.canvas_err.draw_idle()

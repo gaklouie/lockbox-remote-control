@@ -5,6 +5,7 @@ import socket
 import threading
 import tkinter as tk
 from pathlib import Path
+from tkinter import font as tkfont
 from tkinter import ttk
 
 from ttkthemes import ThemedTk
@@ -23,6 +24,8 @@ class MainApp(ThemedTk):
     def __init__(self):
         super().__init__(theme="clearlooks")
         self.hostname = socket.gethostname()
+        self.bold_font = tkfont.nametofont("TkDefaultFont", root=self).copy()
+        self.bold_font.configure(weight="bold")
         self.geometry("1150x880")
 
         if ICON_PATH.exists():
@@ -33,7 +36,7 @@ class MainApp(ThemedTk):
         header = ttk.Frame(self)
         header.pack(side=tk.TOP, fill=tk.X, padx=8, pady=(6, 2))
         ttk.Label(header, text="Host:").pack(side=tk.LEFT)
-        ttk.Label(header, text=self.hostname, font=("TkDefaultFont", 10, "bold")).pack(side=tk.LEFT, padx=(4, 20))
+        ttk.Label(header, text=self.hostname, font=self.bold_font).pack(side=tk.LEFT, padx=(4, 20))
         ttk.Label(header, text="Device name:").pack(side=tk.LEFT)
         self.name_var = tk.StringVar(value=settings.DEVICE_NAME)
         name_entry = ttk.Entry(header, textvariable=self.name_var, width=30)
@@ -116,8 +119,7 @@ class MainApp(ThemedTk):
                     _, message = item
                     log_lines.append(message)
                 elif kind == "scan_progress":
-                    _, i, total = item
-                    latest_progress = (i, total)
+                    _, latest_progress = item
                 elif kind == "scan_done":
                     _, data = item
                     self.scan_tab.on_scan_done(data)
@@ -129,7 +131,7 @@ class MainApp(ThemedTk):
         if log_lines:
             self.monitor_panel.log_many(log_lines)
         if latest_progress is not None:
-            self.scan_tab.on_scan_progress(*latest_progress)
+            self.scan_tab.on_scan_progress(latest_progress)
 
         self.after(100, self.poll_queue)
 

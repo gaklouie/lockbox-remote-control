@@ -6,7 +6,7 @@ the GUI drains it on its own thread (MainApp.poll_queue). Message shapes:
 
     ("reading", timestamp, values_dict)   a new set of physical readings
     ("log", message)                      a line for the live log
-    ("scan_progress", i, total)           manual scan progress
+    ("scan_progress", fraction)           manual scan progress, 0-1 of the voltage range
     ("scan_done", data_dict)              manual scan finished
 """
 
