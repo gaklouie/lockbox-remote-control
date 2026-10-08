@@ -39,8 +39,11 @@ def main():
     # Import order matters: plotting sets the matplotlib backend and color
     # cycle, so it must be imported before anything else touches pyplot.
     from autolock_app import plotting  # noqa: F401
-    from autolock_app import hardware, telemetry
+    from autolock_app import config, hardware, state, telemetry
     from autolock_app.gui.main_window import MainApp
+
+    # Restore this machine's saved settings before any widget reads them.
+    state.log(config.load_settings())
 
     # Connect to the outside world before the GUI starts its monitor thread.
     telemetry.init_mqtt()
