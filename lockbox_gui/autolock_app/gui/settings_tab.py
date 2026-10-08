@@ -141,7 +141,7 @@ class SettingsTab(ttk.Frame):
         self.app.save_settings()
 
         self.app.scan_tab.refresh_from_settings()
-        self.app.monitor_panel.refresh_safe_bands()
+        self.app.monitor_panel.refresh_from_settings()
         self.app.monitor_panel.apply_time_span()
         self.app.monitor_panel.log(
             f"Settings applied and saved. Autolock mode = {settings.AUTOLOCK_MODE}, "

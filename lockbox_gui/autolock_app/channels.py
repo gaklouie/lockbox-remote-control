@@ -41,6 +41,11 @@ ERROR_SIGNAL_NAMES = ["error", "dc_err"]
 OUTPUT_SIGNAL_NAMES = ["slow_output", "fast_output"]
 
 
+def error_signals_for_mode(mode):
+    """Error signals worth plotting in an autolock mode: dc_err only matters in "dc_err_range"."""
+    return ERROR_SIGNAL_NAMES if mode == "dc_err_range" else ["error"]
+
+
 def raw_to_physical(raw_voltages):
     """Convert [ch0, ch1, ch2, ch3] raw ADC volts to a {name: physical volts} dict."""
     return {name: convert(raw)

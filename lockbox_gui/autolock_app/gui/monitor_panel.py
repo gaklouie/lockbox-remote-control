@@ -8,7 +8,8 @@ from tkinter import ttk
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
 
-from ..channels import CHANNEL_CONVERTERS, ERROR_SIGNAL_NAMES, OUTPUT_SIGNAL_NAMES
+from ..channels import (CHANNEL_CONVERTERS, ERROR_SIGNAL_NAMES, OUTPUT_SIGNAL_NAMES,
+                        error_signals_for_mode)
 from ..config import settings
 from ..plotting import SIGNAL_COLORS, draw_safe_range_bars, place_legend_outside
 
@@ -72,7 +73,8 @@ class LiveMonitorPanel(ttk.Frame):
 
         self.out_bars = []
         self.err_bars = []
-        self.refresh_safe_bands()
+        self.shown_err = ERROR_SIGNAL_NAMES
+        self.refresh_from_settings()
 
         log_frame = ttk.Frame(self)
         log_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=False)
@@ -82,8 +84,11 @@ class LiveMonitorPanel(ttk.Frame):
         self.log_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
-    def refresh_safe_bands(self):
-        """(Re)draw the safe-range bars beside each plot from the current settings."""
+    def refresh_from_settings(self):
+        """
+        Apply the current settings to the plots: redraw the safe-range bars,
+        and show dc_err (line and bar) only in the dc_err_range autolock mode.
+        """
         for bar in self.out_bars + self.err_bars:
             bar.remove()
 
@@ -93,10 +98,19 @@ class LiveMonitorPanel(ttk.Frame):
         ])
         place_legend_outside(self.ax_out, extra_handles=handles, n_bars=len(self.out_bars))
 
-        self.err_bars, handles = draw_safe_range_bars(self.ax_err, [
-            ("dc_err", settings.DC_ERR_SAFE_MIN, settings.DC_ERR_SAFE_MAX),
-        ])
+        # Hidden lines keep collecting data, so switching modes shows history at once.
+        # A leading "_" keeps a hidden line out of the legend.
+        self.shown_err = error_signals_for_mode(settings.AUTOLOCK_MODE)
+        for name, line in self.lines_err.items():
+            line.set_visible(name in self.shown_err)
+            line.set_label(name if name in self.shown_err else f"_{name}")
+        dc_err_range = [("dc_err", settings.DC_ERR_SAFE_MIN, settings.DC_ERR_SAFE_MAX)]
+        self.err_bars, handles = draw_safe_range_bars(
+            self.ax_err, dc_err_range if "dc_err" in self.shown_err else [])
         place_legend_outside(self.ax_err, extra_handles=handles, n_bars=len(self.err_bars))
+
+        if self.is_visible:
+            self.redraw_plots(force=True)  # y-limits depend on which signals are shown
 
         self.canvas_out.draw_idle()
         self.canvas_err.draw_idle()
@@ -166,7 +180,7 @@ class LiveMonitorPanel(ttk.Frame):
             m = 0.5
             out_vals = [v for n in OUTPUT_SIGNAL_NAMES for v in self.series[n]]
             self.ax_out.set_ylim(min(out_vals) - m, max(out_vals) + m)
-            err_vals = [v for n in ERROR_SIGNAL_NAMES for v in self.series[n]]
+            err_vals = [v for n in self.shown_err for v in self.series[n]]
             self.ax_err.set_ylim(min(err_vals) - m, max(err_vals) + m)
 
         self.canvas_out.draw_idle()

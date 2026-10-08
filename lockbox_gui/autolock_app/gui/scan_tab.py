@@ -8,7 +8,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolb
 from matplotlib.figure import Figure
 
 from .. import hardware, state
-from ..channels import ERROR_SIGNAL_NAMES, OUTPUT_SIGNAL_NAMES
+from ..channels import OUTPUT_SIGNAL_NAMES, error_signals_for_mode
 from ..config import coerce_value, settings
 from ..plotting import SIGNAL_COLORS, draw_safe_range_bars, place_legend_outside
 from ..workers import run_manual_scan
@@ -164,7 +164,9 @@ class ScanTab(ttk.Frame):
         self.ax_out.clear()
 
         # Small markers show where the (possibly adaptive) scan actually sampled.
-        for name in ERROR_SIGNAL_NAMES:
+        # dc_err is only plotted when this scan searched it (dc_err_range mode).
+        shown_err = error_signals_for_mode(mode)
+        for name in shown_err:
             self.ax_err.plot(data["voltages"], data["trace"][name], ".-", markersize=3,
                              color=SIGNAL_COLORS[name], label=name, alpha=0.6)
         self.ax_err.plot(data["voltages"], data["signal_smoothed"], "k-",
@@ -190,9 +192,8 @@ class ScanTab(ttk.Frame):
 
         self.ax_err.set_xlabel("control out, physical (V)")
         self.ax_err.set_ylabel("error signals (V)")
-        bars, handles = draw_safe_range_bars(self.ax_err, [
-            ("dc_err", settings.DC_ERR_SAFE_MIN, settings.DC_ERR_SAFE_MAX),
-        ])
+        dc_err_range = [("dc_err", settings.DC_ERR_SAFE_MIN, settings.DC_ERR_SAFE_MAX)]
+        bars, handles = draw_safe_range_bars(self.ax_err, dc_err_range if "dc_err" in shown_err else [])
         place_legend_outside(self.ax_err, extra_handles=handles, n_bars=len(bars))
         self.ax_err.grid(True, alpha=0.3)
 
