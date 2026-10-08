@@ -14,7 +14,8 @@ from matplotlib.figure import Figure
 from matplotlib.lines import Line2D
 from matplotlib.transforms import ScaledTranslation
 
-from .config import settings
+from .channels import DISPLAY_NAMES
+from .config import MODE_DISPLAY_NAMES, settings
 
 # --------------------------------------------------------------------------
 # Plot color cycle (applies to every figure created after this point)
@@ -111,7 +112,7 @@ def draw_safe_range_bars(ax, ranges):
         color = SIGNAL_COLORS[name]
         bars.append(ax.add_artist(SafeRangeBar(ax, lo, hi, color, i)))
         handles.append(Line2D([], [], color=color, linewidth=BAR_WIDTH, solid_capstyle="butt",
-                              alpha=BAR_ALPHA, label=f"{name} safe range"))
+                              alpha=BAR_ALPHA, label=f"{DISPLAY_NAMES[name]} safe range"))
     return bars, handles
 
 
@@ -121,8 +122,8 @@ def draw_safe_range_bars(ax, ranges):
 def _plot_autolock_pass(ax, data, title):
     name = data["signal_name"]
     color = SIGNAL_COLORS[name]
-    ax.plot(data["voltages"], data["raw"], ".", color=color, alpha=0.4, label=f"raw {name}")
-    ax.plot(data["voltages"], data["smoothed"], "-", color="black", linewidth=1.0, label=f"smoothed {name}")
+    ax.plot(data["voltages"], data["raw"], ".", color=color, alpha=0.4, label=f"{DISPLAY_NAMES[name]} (raw)")
+    ax.plot(data["voltages"], data["smoothed"], "-", color="black", linewidth=1.0, label=f"{DISPLAY_NAMES[name]} (smoothed)")
 
     bar_handles = []
     if data["mode"] == "zero_crossing":
@@ -137,10 +138,10 @@ def _plot_autolock_pass(ax, data, title):
     if data["chosen"] is not None:
         chosen_v = data["chosen"][0]
         y_at_chosen = 0 if data["mode"] == "zero_crossing" else (data["safe_min"] + data["safe_max"]) / 2
-        ax.plot(chosen_v, y_at_chosen, "r*", markersize=16, label=f"chosen ({chosen_v:.4f} V)")
+        ax.plot(chosen_v, y_at_chosen, "r*", markersize=16, label=f"Chosen ({chosen_v:.4f} V)")
 
-    ax.set_xlabel("control out, physical (V)")
-    ax.set_ylabel(f"{data['signal_name']} (V)")
+    ax.set_xlabel("Control out, physical (V)")
+    ax.set_ylabel(f"{DISPLAY_NAMES[name]} (V)")
     ax.set_title(title)
     place_legend_outside(ax, extra_handles=bar_handles, n_bars=len(bar_handles))
     ax.grid(True, alpha=0.3)
@@ -166,7 +167,7 @@ def save_autolock_scan_plot(session_id, coarse_data, fine_data):
         axes[1].text(0.5, 0.5, "No lock candidate found -\nfine pass skipped",
                      ha="center", va="center", transform=axes[1].transAxes)
         axes[1].set_title("Fine scan")
-    fig.suptitle(f"Autolock scan ({coarse_data['mode']}) - {session_id}")
+    fig.suptitle(f"Autolock scan ({MODE_DISPLAY_NAMES[coarse_data['mode']]}) - {session_id}")
     fig.tight_layout()
     fig.subplots_adjust(right=0.83)
     filename = os.path.join(settings.SCAN_PLOT_DIR, f"{session_id}_scan.png")

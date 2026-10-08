@@ -8,7 +8,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolb
 from matplotlib.figure import Figure
 
 from .. import hardware, state
-from ..channels import OUTPUT_SIGNAL_NAMES, error_signals_for_mode
+from ..channels import DISPLAY_NAMES, ERROR_SIGNAL_NAMES, OUTPUT_SIGNAL_NAMES
 from ..config import coerce_value, settings
 from ..plotting import SIGNAL_COLORS, draw_safe_range_bars, place_legend_outside
 from ..workers import run_manual_scan
@@ -48,7 +48,7 @@ class ScanTab(ttk.Frame):
         self.mode_var = tk.StringVar(value=settings.AUTOLOCK_MODE)
         ttk.Radiobutton(controls, text="Search for crossings in error", value="zero_crossing",
                         variable=self.mode_var).grid(row=1, column=1, columnspan=2, sticky="w", pady=(6, 0))
-        ttk.Radiobutton(controls, text="Search for safe range in dc_err", value="dc_err_range",
+        ttk.Radiobutton(controls, text="Search for safe range in DC error", value="dc_err_range",
                         variable=self.mode_var).grid(row=1, column=3, columnspan=2, sticky="w", pady=(6, 0))
 
         ttk.Label(controls, text="Crossing sign:").grid(row=2, column=0, sticky="w", pady=(4, 0))
@@ -164,13 +164,11 @@ class ScanTab(ttk.Frame):
         self.ax_out.clear()
 
         # Small markers show where the (possibly adaptive) scan actually sampled.
-        # dc_err is only plotted when this scan searched it (dc_err_range mode).
-        shown_err = error_signals_for_mode(mode)
-        for name in shown_err:
+        for name in ERROR_SIGNAL_NAMES:
             self.ax_err.plot(data["voltages"], data["trace"][name], ".-", markersize=3,
-                             color=SIGNAL_COLORS[name], label=name, alpha=0.6)
+                             color=SIGNAL_COLORS[name], label=DISPLAY_NAMES[name], alpha=0.6)
         self.ax_err.plot(data["voltages"], data["signal_smoothed"], "k-",
-                         label=f"{'error' if mode == 'zero_crossing' else 'dc_err'} (smoothed)")
+                         label=f"{DISPLAY_NAMES['error' if mode == 'zero_crossing' else 'dc_err']} (smoothed)")
 
         if mode == "zero_crossing":
             self.ax_err.axhline(0, color="black", linewidth=0.8, linestyle="--")
@@ -190,18 +188,19 @@ class ScanTab(ttk.Frame):
                                  textcoords="offset points", xytext=(0, 8),
                                  ha="center", fontsize=8, fontweight="bold")
 
-        self.ax_err.set_xlabel("control out, physical (V)")
-        self.ax_err.set_ylabel("error signals (V)")
+        self.ax_err.set_xlabel("Control out, physical (V)")
+        self.ax_err.set_ylabel("Error signals (V)")
+        # The dc_err safe range only matters when this scan searched it.
         dc_err_range = [("dc_err", settings.DC_ERR_SAFE_MIN, settings.DC_ERR_SAFE_MAX)]
-        bars, handles = draw_safe_range_bars(self.ax_err, dc_err_range if "dc_err" in shown_err else [])
+        bars, handles = draw_safe_range_bars(self.ax_err, dc_err_range if mode == "dc_err_range" else [])
         place_legend_outside(self.ax_err, extra_handles=handles, n_bars=len(bars))
         self.ax_err.grid(True, alpha=0.3)
 
         for name in OUTPUT_SIGNAL_NAMES:
             self.ax_out.plot(data["voltages"], data["trace"][name], ".-", markersize=3,
-                             color=SIGNAL_COLORS[name], label=name)
-        self.ax_out.set_xlabel("control out, physical (V)")
-        self.ax_out.set_ylabel("outputs (V)")
+                             color=SIGNAL_COLORS[name], label=DISPLAY_NAMES[name])
+        self.ax_out.set_xlabel("Control out, physical (V)")
+        self.ax_out.set_ylabel("Outputs (V)")
         bars, handles = draw_safe_range_bars(self.ax_out, [
             ("slow_output", settings.SLOW_OUTPUT_SAFE_MIN, settings.SLOW_OUTPUT_SAFE_MAX),
             ("fast_output", settings.FAST_OUTPUT_SAFE_MIN, settings.FAST_OUTPUT_SAFE_MAX),

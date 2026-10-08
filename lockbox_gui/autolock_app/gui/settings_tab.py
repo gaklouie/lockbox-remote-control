@@ -5,7 +5,7 @@ import tkinter as tk
 from tkinter import messagebox, ttk
 
 from .. import state
-from ..config import FIELD_TYPES, SETTINGS_PATH, coerce_value, settings
+from ..config import FIELD_TYPES, MODE_DISPLAY_NAMES, SETTINGS_PATH, coerce_value, settings
 from ..locking import autolock_once
 
 
@@ -13,12 +13,12 @@ class SettingsTab(ttk.Frame):
     """Autolock settings, grouped, + engage/disengage control."""
 
     SAFE_RANGE_FIELDS = {
-        "SLOW_OUTPUT_SAFE_MIN": "slow_output safe min (V)",
-        "SLOW_OUTPUT_SAFE_MAX": "slow_output safe max (V)",
-        "FAST_OUTPUT_SAFE_MIN": "fast_output safe min (V)",
-        "FAST_OUTPUT_SAFE_MAX": "fast_output safe max (V)",
-        "DC_ERR_SAFE_MIN": "dc_err safe min (V)",
-        "DC_ERR_SAFE_MAX": "dc_err safe max (V)",
+        "SLOW_OUTPUT_SAFE_MIN": "Slow output safe min (V)",
+        "SLOW_OUTPUT_SAFE_MAX": "Slow output safe max (V)",
+        "FAST_OUTPUT_SAFE_MIN": "Fast output safe min (V)",
+        "FAST_OUTPUT_SAFE_MAX": "Fast output safe max (V)",
+        "DC_ERR_SAFE_MIN": "DC error safe min (V)",
+        "DC_ERR_SAFE_MAX": "DC error safe max (V)",
     }
     SCAN_FIELDS = {
         "SCAN_MIN_VOLTAGE": "Scan output min (physical V)",
@@ -66,9 +66,9 @@ class SettingsTab(ttk.Frame):
 
         ttk.Label(general_frame, text="Autolock mode:").grid(row=0, column=0, columnspan=2, sticky="w", pady=(4, 0))
         self.mode_var = tk.StringVar()
-        ttk.Radiobutton(general_frame, text="Zero crossing (error + output range)", value="zero_crossing",
+        ttk.Radiobutton(general_frame, text="Zero crossing (error + output safe range)", value="zero_crossing",
                         variable=self.mode_var).grid(row=1, column=0, columnspan=2, sticky="w")
-        ttk.Radiobutton(general_frame, text="DC err safe range", value="dc_err_range",
+        ttk.Radiobutton(general_frame, text="DC error safe range", value="dc_err_range",
                         variable=self.mode_var).grid(row=2, column=0, columnspan=2, sticky="w")
 
         ttk.Label(general_frame, text="Crossing sign:").grid(row=3, column=0, columnspan=2, sticky="w", pady=(6, 0))
@@ -144,7 +144,7 @@ class SettingsTab(ttk.Frame):
         self.app.monitor_panel.refresh_from_settings()
         self.app.monitor_panel.apply_time_span()
         self.app.monitor_panel.log(
-            f"Settings applied and saved. Autolock mode = {settings.AUTOLOCK_MODE}, "
+            f"Settings applied and saved. Autolock mode = {MODE_DISPLAY_NAMES[settings.AUTOLOCK_MODE]}, "
             f"crossing sign = {settings.CROSSING_SIGN}")
         return True
 
@@ -164,8 +164,8 @@ class SettingsTab(ttk.Frame):
             return
         state.autolock_engaged.set()
         self.engage_var.set("Disengage Autolock")
-        self.status_label.configure(text=f"Autolock: engaged ({settings.AUTOLOCK_MODE})")
-        self.app.monitor_panel.log(f"Autolock engaged (mode={settings.AUTOLOCK_MODE}).")
+        self.status_label.configure(text=f"Autolock: engaged ({MODE_DISPLAY_NAMES[settings.AUTOLOCK_MODE]})")
+        self.app.monitor_panel.log(f"Autolock engaged ({MODE_DISPLAY_NAMES[settings.AUTOLOCK_MODE]}).")
 
     def on_run_now(self):
         reason = state.busy_reason()

@@ -98,6 +98,12 @@ CHOICES = {
     "CROSSING_SIGN": ("positive", "negative", "both"),
 }
 
+# Human-readable autolock mode names for the GUI, plots and log.
+MODE_DISPLAY_NAMES = {
+    "zero_crossing": "Zero crossing",
+    "dc_err_range": "DC error safe range",
+}
+
 # Lower bounds that keep the program working (e.g. a zero monitor interval
 # would spin the monitor thread, a 1-point scan has no step size).
 MINIMUMS = {

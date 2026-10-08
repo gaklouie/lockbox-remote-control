@@ -37,7 +37,7 @@ class MainApp(ThemedTk):
         header.pack(side=tk.TOP, fill=tk.X, padx=8, pady=(6, 2))
         ttk.Label(header, text="Host:").pack(side=tk.LEFT)
         ttk.Label(header, text=self.hostname, font=self.bold_font).pack(side=tk.LEFT, padx=(4, 20))
-        ttk.Label(header, text="Device name:").pack(side=tk.LEFT)
+        ttk.Label(header, text="Lockbox name:").pack(side=tk.LEFT)
         self.name_var = tk.StringVar(value=settings.DEVICE_NAME)
         name_entry = ttk.Entry(header, textvariable=self.name_var, width=30)
         name_entry.pack(side=tk.LEFT, padx=4)
@@ -74,7 +74,7 @@ class MainApp(ThemedTk):
         self.name_var.set(settings.DEVICE_NAME)
         self._update_title()
         self.save_settings()
-        self.monitor_panel.log(f"Device name set to {settings.DEVICE_NAME!r}.")
+        self.monitor_panel.log(f"Lockbox name set to {settings.DEVICE_NAME!r}.")
 
     def save_settings(self):
         """Save settings to this machine's settings file, logging (not raising) on failure."""

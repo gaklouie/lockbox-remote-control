@@ -8,8 +8,7 @@ from tkinter import ttk
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
 
-from ..channels import (CHANNEL_CONVERTERS, ERROR_SIGNAL_NAMES, OUTPUT_SIGNAL_NAMES,
-                        error_signals_for_mode)
+from ..channels import CHANNEL_CONVERTERS, DISPLAY_NAMES, ERROR_SIGNAL_NAMES, OUTPUT_SIGNAL_NAMES
 from ..config import settings
 from ..plotting import SIGNAL_COLORS, draw_safe_range_bars, place_legend_outside
 
@@ -47,10 +46,10 @@ class LiveMonitorPanel(ttk.Frame):
         self.ax_out = fig_out.add_subplot(111)
         self.lines_out = {}
         for name in OUTPUT_SIGNAL_NAMES:
-            (line,) = self.ax_out.plot([], [], color=SIGNAL_COLORS[name], label=name)
+            (line,) = self.ax_out.plot([], [], color=SIGNAL_COLORS[name], label=DISPLAY_NAMES[name])
             self.lines_out[name] = line
-        self.ax_out.set_xlabel("time (s)")
-        self.ax_out.set_ylabel("volts")
+        self.ax_out.set_xlabel("Time (s)")
+        self.ax_out.set_ylabel("Voltage (V)")
         self.ax_out.grid(True, alpha=0.3)
         fig_out.subplots_adjust(right=0.69)
         self.canvas_out = FigureCanvasTkAgg(fig_out, master=out_frame)
@@ -62,10 +61,10 @@ class LiveMonitorPanel(ttk.Frame):
         self.ax_err = fig_err.add_subplot(111)
         self.lines_err = {}
         for name in ERROR_SIGNAL_NAMES:
-            (line,) = self.ax_err.plot([], [], color=SIGNAL_COLORS[name], label=name)
+            (line,) = self.ax_err.plot([], [], color=SIGNAL_COLORS[name], label=DISPLAY_NAMES[name])
             self.lines_err[name] = line
-        self.ax_err.set_xlabel("time (s)")
-        self.ax_err.set_ylabel("volts")
+        self.ax_err.set_xlabel("Time (s)")
+        self.ax_err.set_ylabel("Voltage (V)")
         self.ax_err.grid(True, alpha=0.3)
         fig_err.subplots_adjust(right=0.69)
         self.canvas_err = FigureCanvasTkAgg(fig_err, master=err_frame)
@@ -73,7 +72,6 @@ class LiveMonitorPanel(ttk.Frame):
 
         self.out_bars = []
         self.err_bars = []
-        self.shown_err = ERROR_SIGNAL_NAMES
         self.refresh_from_settings()
 
         log_frame = ttk.Frame(self)
@@ -86,8 +84,9 @@ class LiveMonitorPanel(ttk.Frame):
 
     def refresh_from_settings(self):
         """
-        Apply the current settings to the plots: redraw the safe-range bars,
-        and show dc_err (line and bar) only in the dc_err_range autolock mode.
+        Apply the current settings to the plots: redraw the safe-range bars.
+        The dc_err bar is only drawn in the dc_err_range autolock mode, the
+        only mode in which that range is used.
         """
         for bar in self.out_bars + self.err_bars:
             bar.remove()
@@ -98,19 +97,10 @@ class LiveMonitorPanel(ttk.Frame):
         ])
         place_legend_outside(self.ax_out, extra_handles=handles, n_bars=len(self.out_bars))
 
-        # Hidden lines keep collecting data, so switching modes shows history at once.
-        # A leading "_" keeps a hidden line out of the legend.
-        self.shown_err = error_signals_for_mode(settings.AUTOLOCK_MODE)
-        for name, line in self.lines_err.items():
-            line.set_visible(name in self.shown_err)
-            line.set_label(name if name in self.shown_err else f"_{name}")
         dc_err_range = [("dc_err", settings.DC_ERR_SAFE_MIN, settings.DC_ERR_SAFE_MAX)]
         self.err_bars, handles = draw_safe_range_bars(
-            self.ax_err, dc_err_range if "dc_err" in self.shown_err else [])
+            self.ax_err, dc_err_range if settings.AUTOLOCK_MODE == "dc_err_range" else [])
         place_legend_outside(self.ax_err, extra_handles=handles, n_bars=len(self.err_bars))
-
-        if self.is_visible:
-            self.redraw_plots(force=True)  # y-limits depend on which signals are shown
 
         self.canvas_out.draw_idle()
         self.canvas_err.draw_idle()
@@ -180,7 +170,7 @@ class LiveMonitorPanel(ttk.Frame):
             m = 0.5
             out_vals = [v for n in OUTPUT_SIGNAL_NAMES for v in self.series[n]]
             self.ax_out.set_ylim(min(out_vals) - m, max(out_vals) + m)
-            err_vals = [v for n in self.shown_err for v in self.series[n]]
+            err_vals = [v for n in ERROR_SIGNAL_NAMES for v in self.series[n]]
             self.ax_err.set_ylim(min(err_vals) - m, max(err_vals) + m)
 
         self.canvas_out.draw_idle()

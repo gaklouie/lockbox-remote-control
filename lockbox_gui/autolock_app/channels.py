@@ -40,10 +40,13 @@ CHANNEL_CONVERTERS = {
 ERROR_SIGNAL_NAMES = ["error", "dc_err"]
 OUTPUT_SIGNAL_NAMES = ["slow_output", "fast_output"]
 
-
-def error_signals_for_mode(mode):
-    """Error signals worth plotting in an autolock mode: dc_err only matters in "dc_err_range"."""
-    return ERROR_SIGNAL_NAMES if mode == "dc_err_range" else ["error"]
+# Human-readable names for plot labels. The keys above stay as the MQTT/Influx field names.
+DISPLAY_NAMES = {
+    "slow_output": "Slow output",
+    "fast_output": "Fast output",
+    "error": "Error",
+    "dc_err": "DC error",
+}
 
 
 def raw_to_physical(raw_voltages):

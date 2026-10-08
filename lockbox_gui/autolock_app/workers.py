@@ -7,7 +7,7 @@ Neither touches Tk; results go to the GUI through state.gui_queue.
 import time
 
 from . import state
-from .config import settings
+from .config import MODE_DISPLAY_NAMES, settings
 from .hardware import read_physical, short_caps_and_block_pid
 from .locking import autolock_once
 from .scanning import sweep
@@ -71,7 +71,7 @@ def run_manual_scan(v_min, v_max, num_points, mode, crossing_sign, adaptive):
     """
     state.manual_scan_active.set()
     try:
-        state.log(f"Starting manual scan (mode={mode}, sign={crossing_sign}, "
+        state.log(f"Starting manual scan ({MODE_DISPLAY_NAMES[mode]}, sign={crossing_sign}, "
                   f"{'adaptive' if adaptive else f'{num_points} uniform'} points)...")
         short_caps_and_block_pid()
 
