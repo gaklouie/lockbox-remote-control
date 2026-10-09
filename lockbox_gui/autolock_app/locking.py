@@ -97,7 +97,7 @@ def _autolock_zero_crossing(log_fn):
 
 
 def _autolock_dc_err_range(log_fn):
-    log_fn("Starting dc_err safe-range autolock...")
+    log_fn("Starting DC error lock-range autolock...")
     short_caps_and_block_pid()
     session_id = time.strftime("%Y%m%d_%H%M%S")
 
@@ -112,7 +112,7 @@ def _autolock_dc_err_range(log_fn):
                    "safe_min": settings.DC_ERR_SAFE_MIN, "safe_max": settings.DC_ERR_SAFE_MAX}
 
     if not coarse_segments:
-        log_fn("No safe dc_err region found - autolock failed.")
+        log_fn("No region with DC error inside its lock range found - autolock failed.")
         save_autolock_scan_plot(session_id, coarse_data, None)
         set_control_out(settings.RESET_VOLTAGE_ON_FAILURE)
         return False
@@ -120,7 +120,7 @@ def _autolock_dc_err_range(log_fn):
     widest = max(coarse_segments, key=lambda s: s[3])
     coarse_mid = widest[2]
     coarse_data["chosen"] = (coarse_mid, None)
-    log_fn(f"Coarse pass found {len(coarse_segments)} safe region(s); "
+    log_fn(f"Coarse pass found {len(coarse_segments)} lock-range region(s); "
            f"widest centered near {coarse_mid:.4f} V. Refining...")
 
     fine_v, fine_trace = _fine_pass(coarse_mid, coarse_step)
@@ -141,7 +141,7 @@ def _autolock_dc_err_range(log_fn):
     save_autolock_scan_plot(session_id, coarse_data, fine_data)
 
     set_control_out(lock_v)
-    log_fn(f"Locked: control out = {lock_v:.4f} V physical (dc_err safe-region midpoint)")
+    log_fn(f"Locked: control out = {lock_v:.4f} V physical (DC error lock-range midpoint)")
     restart_pid()
     return True
 

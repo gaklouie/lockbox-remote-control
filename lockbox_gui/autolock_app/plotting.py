@@ -14,7 +14,7 @@ from matplotlib.figure import Figure
 from matplotlib.lines import Line2D
 from matplotlib.transforms import ScaledTranslation
 
-from .channels import DISPLAY_NAMES
+from .channels import DISPLAY_NAMES, RANGE_NAMES
 from .config import MODE_DISPLAY_NAMES, settings
 
 # --------------------------------------------------------------------------
@@ -112,7 +112,7 @@ def draw_safe_range_bars(ax, ranges):
         color = SIGNAL_COLORS[name]
         bars.append(ax.add_artist(SafeRangeBar(ax, lo, hi, color, i)))
         handles.append(Line2D([], [], color=color, linewidth=BAR_WIDTH, solid_capstyle="butt",
-                              alpha=BAR_ALPHA, label=f"{DISPLAY_NAMES[name]} safe range"))
+                              alpha=BAR_ALPHA, label=f"{DISPLAY_NAMES[name]} {RANGE_NAMES[name]}"))
     return bars, handles
 
 

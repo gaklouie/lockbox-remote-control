@@ -48,6 +48,14 @@ DISPLAY_NAMES = {
     "dc_err": "DC error",
 }
 
+# What each signal's allowed range is called: the outputs must stay inside a
+# safe range, while DC error has a lock range that the autolock locks into.
+RANGE_NAMES = {
+    "slow_output": "safe range",
+    "fast_output": "safe range",
+    "dc_err": "lock range",
+}
+
 
 def raw_to_physical(raw_voltages):
     """Convert [ch0, ch1, ch2, ch3] raw ADC volts to a {name: physical volts} dict."""

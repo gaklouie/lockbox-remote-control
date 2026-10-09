@@ -17,8 +17,8 @@ class SettingsTab(ttk.Frame):
         "SLOW_OUTPUT_SAFE_MAX": "Slow output safe max (V)",
         "FAST_OUTPUT_SAFE_MIN": "Fast output safe min (V)",
         "FAST_OUTPUT_SAFE_MAX": "Fast output safe max (V)",
-        "DC_ERR_SAFE_MIN": "DC error safe min (V)",
-        "DC_ERR_SAFE_MAX": "DC error safe max (V)",
+        "DC_ERR_SAFE_MIN": "DC error lock range min (V)",
+        "DC_ERR_SAFE_MAX": "DC error lock range max (V)",
     }
     SCAN_FIELDS = {
         "SCAN_MIN_VOLTAGE": "Scan output min (physical V)",
@@ -53,7 +53,7 @@ class SettingsTab(ttk.Frame):
         groups_frame = ttk.Frame(self)
         groups_frame.pack(side=tk.TOP, fill=tk.X, padx=10, pady=10)
 
-        safe_frame = ttk.LabelFrame(groups_frame, text="Safe Range Parameters")
+        safe_frame = ttk.LabelFrame(groups_frame, text="Safe / Lock Range Parameters")
         safe_frame.grid(row=0, column=0, sticky="n", padx=(0, 8))
         self._build_field_group(safe_frame, self.SAFE_RANGE_FIELDS)
 
@@ -68,7 +68,7 @@ class SettingsTab(ttk.Frame):
         self.mode_var = tk.StringVar()
         ttk.Radiobutton(general_frame, text="Zero crossing (error + output safe range)", value="zero_crossing",
                         variable=self.mode_var).grid(row=1, column=0, columnspan=2, sticky="w")
-        ttk.Radiobutton(general_frame, text="DC error safe range", value="dc_err_range",
+        ttk.Radiobutton(general_frame, text="DC error lock range", value="dc_err_range",
                         variable=self.mode_var).grid(row=2, column=0, columnspan=2, sticky="w")
 
         ttk.Label(general_frame, text="Crossing sign:").grid(row=3, column=0, columnspan=2, sticky="w", pady=(6, 0))

@@ -48,7 +48,7 @@ class ScanTab(ttk.Frame):
         self.mode_var = tk.StringVar(value=settings.AUTOLOCK_MODE)
         ttk.Radiobutton(controls, text="Search for crossings in error", value="zero_crossing",
                         variable=self.mode_var).grid(row=1, column=1, columnspan=2, sticky="w", pady=(6, 0))
-        ttk.Radiobutton(controls, text="Search for safe range in DC error", value="dc_err_range",
+        ttk.Radiobutton(controls, text="Search for lock range in DC error", value="dc_err_range",
                         variable=self.mode_var).grid(row=1, column=3, columnspan=2, sticky="w", pady=(6, 0))
 
         ttk.Label(controls, text="Crossing sign:").grid(row=2, column=0, sticky="w", pady=(4, 0))

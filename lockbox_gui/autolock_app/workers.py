@@ -45,7 +45,7 @@ def monitor_loop():
         if state.autolock_engaged.is_set():
             if settings.AUTOLOCK_MODE == "dc_err_range":
                 triggered = not is_within(values["dc_err"], settings.DC_ERR_SAFE_MIN, settings.DC_ERR_SAFE_MAX)
-                trigger_msg = (f"dc_err={values['dc_err']:.4f}V outside "
+                trigger_msg = (f"dc_err={values['dc_err']:.4f}V outside lock range "
                                f"[{settings.DC_ERR_SAFE_MIN}, {settings.DC_ERR_SAFE_MAX}]")
             else:
                 slow_ok = is_within(values["slow_output"], settings.SLOW_OUTPUT_SAFE_MIN, settings.SLOW_OUTPUT_SAFE_MAX)
