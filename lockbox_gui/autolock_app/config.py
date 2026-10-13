@@ -18,9 +18,11 @@ from pathlib import Path
 VDD_VOLTAGE = 5.0   # Supply voltage feeding the MCP4728 (raw DAC full scale)
 ADS_GAIN = 1         # 1 -> +/-4.096V input range; use 2/3 for +/-6.144V
 
-# Channel A shift/amplify circuit: V_physical = V_DAC * GAIN + OFFSET
-DAC_SHIFT_GAIN = 3.826
-DAC_SHIFT_OFFSET = -9.78
+# Channel A shift/amplify circuit: V_physical = V_DAC * GAIN + OFFSET.
+# The circuit inverts, so the gain is negative: V_physical = 9.78 - 3.826 * V_DAC
+# (raw DAC 0..5 V gives physical +9.78..-9.35 V).
+DAC_SHIFT_GAIN = -3.826
+DAC_SHIFT_OFFSET = 9.78
 
 # Channels B, C, D: fixed raw DAC volts, not physical-converted, not GUI-adjustable
 DAC_HIGH_VOLTAGE = 4.0
