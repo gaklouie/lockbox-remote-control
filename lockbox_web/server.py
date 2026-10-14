@@ -35,6 +35,11 @@ from collections import deque
 from contextlib import asynccontextmanager
 from pathlib import Path
 
+if __name__ == "__main__":
+    # Printed before the slow imports below, so it's clear something is happening.
+    print("Starting the lockbox web service (loading libraries, then connecting to MQTT "
+          "and the hardware)...", flush=True)
+
 import uvicorn
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse
@@ -380,6 +385,8 @@ async def lifespan(_app):
     for thread in threads:
         thread.start()
     tasks = [asyncio.create_task(hub.run()), asyncio.create_task(hub.status_ticker())]
+    if web_server is not None:
+        tasks.append(asyncio.create_task(announce_when_listening()))
     try:
         yield
     finally:
@@ -389,6 +396,39 @@ async def lifespan(_app):
         for thread in threads:
             await asyncio.to_thread(thread.join, 10.0)
         telemetry.close_mqtt()
+        if web_server is not None:
+            print("Lockbox web service stopped.", flush=True)
+
+
+web_server = None  # the uvicorn.Server, set by main() when run as a program
+
+
+def page_addresses(host, port):
+    """Addresses a browser on another computer can use to reach this service."""
+    if host not in ("0.0.0.0", "::", ""):
+        return [f"http://{host}:{port}"]
+    addresses = []
+    try:
+        # Finds the address of the network interface used to reach other computers.
+        # Connecting a UDP socket sends nothing; it only picks a route.
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as probe:
+            probe.connect(("10.255.255.255", 1))
+            addresses.append(f"http://{probe.getsockname()[0]}:{port}")
+    except OSError:
+        pass
+    addresses.append(f"http://{socket.gethostname()}.local:{port}")
+    return addresses
+
+
+async def announce_when_listening():
+    """Print a ready message once uvicorn is actually accepting connections."""
+    while not web_server.started:
+        await asyncio.sleep(0.1)
+    config_ = web_server.config
+    addresses = "  or  ".join(page_addresses(config_.host, config_.port))
+    print(f"Lockbox web service is running. Open {addresses} in a browser.\n"
+          f"Stop it with Ctrl-C (or, if started in the background: pkill -f \"python server.py\").",
+          flush=True)
 
 
 app = FastAPI(title="Lockbox web service", lifespan=lifespan)
@@ -450,7 +490,9 @@ def main():
         sys.exit("The Tk GUI's headless process is running and owns the hardware. Stop it first:\n"
                  "open the Tk GUI and untick 'Keep running after GUI closes', then close it.")
 
-    uvicorn.run(app, host=args.host, port=args.port, log_level="warning")
+    global web_server
+    web_server = uvicorn.Server(uvicorn.Config(app, host=args.host, port=args.port, log_level="warning"))
+    web_server.run()
 
 
 if __name__ == "__main__":
