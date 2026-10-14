@@ -46,6 +46,7 @@ engaged when the service last ran, it re-engages on start.
     static/app.js        page logic: WebSocket, tabs, forms
     static/plot.js       small dependency-free canvas line plot
     static/style.css
+    ../lockbox_gui/icon.png, icon_32.png   browser-tab icon (shared with the Tk GUI)
 
 The lock logic is **not** copied. `server.py` imports the `autolock_app`
 package from `../lockbox_gui` (config, hardware, telemetry, scanning,

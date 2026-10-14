@@ -53,6 +53,7 @@ from autolock_app.plotting import SIGNAL_COLORS  # noqa: E402
 from autolock_app.workers import monitor_loop, run_manual_scan  # noqa: E402
 
 STATIC_DIR = HERE / "static"
+ICON_DIR = HERE.parent / "lockbox_gui"  # the Tk GUI's icon doubles as the browser-tab icon
 MAX_HISTORY_POINTS = 5000
 MAX_LOG_LINES = 300
 
@@ -397,6 +398,22 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 @app.get("/")
 async def index():
     return FileResponse(STATIC_DIR / "index.html")
+
+
+@app.get("/icon.png")
+async def icon():
+    return FileResponse(ICON_DIR / "icon.png", media_type="image/png")
+
+
+@app.get("/icon_32.png")
+async def icon_32():
+    return FileResponse(ICON_DIR / "icon_32.png", media_type="image/png")
+
+
+@app.get("/favicon.ico")
+async def favicon():
+    # Browsers ask for this by default even when the page names its own icon.
+    return FileResponse(ICON_DIR / "icon_32.png", media_type="image/png")
 
 
 @app.websocket("/ws")
