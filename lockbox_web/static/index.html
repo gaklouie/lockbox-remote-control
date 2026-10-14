@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lockbox</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header>
+    <div class="identity">
+      <span class="muted">Host:</span> <strong id="hostname">-</strong>
+      <label for="name-input" class="muted">Lockbox name:</label>
+      <input id="name-input" type="text" size="24">
+      <button id="save-name">Save Name</button>
+    </div>
+    <div class="state">
+      <span id="autolock-status" class="pill">Autolock: -</span>
+      <span id="busy-status" class="pill hidden"></span>
+      <span id="connection" class="pill bad">Disconnected</span>
+    </div>
+  </header>
+
+  <nav id="tabs">
+    <button data-tab="scan" class="active">Scan &amp; Lock</button>
+    <button data-tab="settings">Settings</button>
+    <button data-tab="monitor">Live Monitor</button>
+  </nav>
+
+  <main>
+    <section id="tab-scan" class="tab active">
+      <div class="controls">
+        <label>Scan min (physical V) <input id="scan-min" type="number" step="any"></label>
+        <label>Scan max (physical V) <input id="scan-max" type="number" step="any"></label>
+        <label>Points <input id="scan-points" type="number" step="1" min="2"></label>
+        <label class="check"><input id="scan-adaptive" type="checkbox"> Adaptive spacing</label>
+      </div>
+      <div class="controls">
+        <span class="muted">Lock mode:</span>
+        <label class="check"><input type="radio" name="scan-mode" value="zero_crossing" checked> Search for crossings in error</label>
+        <label class="check"><input type="radio" name="scan-mode" value="dc_err_range"> Search for lock range in DC error</label>
+        <span class="muted gap">Crossing sign:</span>
+        <label class="check"><input type="radio" name="scan-sign" value="positive" checked> Positive</label>
+        <label class="check"><input type="radio" name="scan-sign" value="negative"> Negative</label>
+        <label class="check"><input type="radio" name="scan-sign" value="both"> Both</label>
+      </div>
+      <div class="controls">
+        <button id="run-scan" class="primary">Run Scan</button>
+        <progress id="scan-progress" value="0" max="1"></progress>
+        <span class="gap"></span>
+        <button id="set-output">Set Output</button>
+        <input id="output-voltage" type="number" step="any" class="narrow">
+        <span class="muted">V physical (control out only)</span>
+      </div>
+      <canvas id="scan-err-plot" class="plot"></canvas>
+      <canvas id="scan-out-plot" class="plot"></canvas>
+      <div class="controls">
+        <label for="candidates" class="muted">Lock candidates:</label>
+        <select id="candidates" size="4"></select>
+        <button id="lock-selected" class="primary">Lock to Selected</button>
+        <button id="release">Release (restart PID)</button>
+      </div>
+    </section>
+
+    <section id="tab-settings" class="tab">
+      <div id="settings-groups" class="groups"></div>
+      <div class="controls">
+        <button id="apply-settings" class="primary">Apply &amp; Save Settings</button>
+        <button id="toggle-engage">Engage Autolock</button>
+        <button id="autolock-now">Run Autolock Now</button>
+        <span id="settings-dirty" class="muted hidden">You have unapplied changes.</span>
+      </div>
+    </section>
+
+    <section id="tab-monitor" class="tab">
+      <div class="two-plots">
+        <fieldset><legend>Outputs</legend><canvas id="monitor-out-plot" class="plot tall"></canvas></fieldset>
+        <fieldset><legend>Errors</legend><canvas id="monitor-err-plot" class="plot tall"></canvas></fieldset>
+      </div>
+      <div id="latest-reading" class="muted mono"></div>
+    </section>
+  </main>
+
+  <footer>
+    <div id="error-banner" class="hidden"></div>
+    <pre id="log"></pre>
+  </footer>
+
+  <script src="/static/plot.js"></script>
+  <script src="/static/app.js"></script>
+</body>
+</html>
