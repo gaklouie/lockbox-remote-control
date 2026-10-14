@@ -1,5 +1,6 @@
 """Main window: hostname/device-name header, the three tabs, and worker->GUI message handling."""
 
+import os
 import queue
 import socket
 import threading
@@ -10,7 +11,7 @@ from tkinter import ttk
 
 from ttkthemes import ThemedTk
 
-from .. import state, telemetry
+from .. import headless, state, telemetry
 from ..config import save_settings, settings
 from ..workers import monitor_loop
 from .monitor_panel import LiveMonitorPanel
@@ -21,7 +22,7 @@ ICON_PATH = Path(__file__).resolve().parents[2] / "icon.png"  # next to autolock
 
 
 class MainApp(ThemedTk):
-    def __init__(self):
+    def __init__(self, took_over_from_headless=False):
         super().__init__(theme="clearlooks")
         self.hostname = socket.gethostname()
         self.bold_font = tkfont.nametofont("TkDefaultFont", root=self).copy()
@@ -43,6 +44,9 @@ class MainApp(ThemedTk):
         name_entry.pack(side=tk.LEFT, padx=4)
         name_entry.bind("<Return>", lambda _event: self.on_save_name())
         ttk.Button(header, text="Save Name", command=self.on_save_name).pack(side=tk.LEFT, padx=4)
+        self.headless_var = tk.BooleanVar(value=settings.HEADLESS_ON_CLOSE)
+        ttk.Checkbutton(header, text="Keep running after GUI closes (headless)",
+                        variable=self.headless_var, command=self.on_toggle_headless).pack(side=tk.RIGHT, padx=4)
         self._update_title()
 
         notebook = ttk.Notebook(self)
@@ -61,8 +65,18 @@ class MainApp(ThemedTk):
         self.protocol("WM_DELETE_WINDOW", self.on_close)
         self.after(100, self.poll_queue)
 
+        # Autolock normally starts disengaged. The exception: this GUI just took
+        # over from a headless process that had it engaged - keep it engaged.
+        if took_over_from_headless and settings.AUTOLOCK_ENGAGED:
+            self.settings_tab.set_engaged(True)
+        elif settings.AUTOLOCK_ENGAGED:
+            settings.AUTOLOCK_ENGAGED = False
+            self.save_settings()
+
         self.monitor_thread = threading.Thread(target=monitor_loop, daemon=True)
         self.monitor_thread.start()
+
+        self._sync_headless_standby()
 
     def _update_title(self):
         name = settings.DEVICE_NAME.strip()
@@ -75,6 +89,28 @@ class MainApp(ThemedTk):
         self._update_title()
         self.save_settings()
         self.monitor_panel.log(f"Lockbox name set to {settings.DEVICE_NAME!r}.")
+
+    def on_toggle_headless(self):
+        settings.HEADLESS_ON_CLOSE = self.headless_var.get()
+        self.save_settings()
+        self._sync_headless_standby()
+
+    def _sync_headless_standby(self):
+        """
+        Start or stop the standby process to match HEADLESS_ON_CLOSE. The
+        standby waits for this GUI to end - however it ends - and then keeps
+        monitoring, logging and autolock going (see headless.py).
+        """
+        if settings.HEADLESS_ON_CLOSE:
+            if headless.spawn_standby(os.getpid()):
+                self.monitor_panel.log(
+                    "Headless standby ready: monitoring, logging and autolock will continue "
+                    f"after this window closes. Its log: {headless.LOG_PATH}")
+            else:
+                self.monitor_panel.log(
+                    f"WARNING: the headless standby did not start - see {headless.LOG_PATH}")
+        elif headless.stop_running():
+            self.monitor_panel.log("Headless standby stopped: everything stops when this window closes.")
 
     def save_settings(self):
         """Save settings to this machine's settings file, logging (not raising) on failure."""
@@ -136,6 +172,12 @@ class MainApp(ThemedTk):
         self.after(100, self.poll_queue)
 
     def on_close(self):
+        # Let go of the hardware before the window goes away: the headless
+        # standby (if enabled) takes over as soon as this process has ended,
+        # and two programs must never drive the DAC/ADC at once.
         state.stop_event.set()
+        self.monitor_thread.join(timeout=10.0)
         telemetry.close_mqtt()
+        if not settings.HEADLESS_ON_CLOSE:
+            headless.stop_running()  # make sure no standby is left behind
         self.destroy()

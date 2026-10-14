@@ -1,14 +1,15 @@
 """
-matplotlib setup (backend, color cycle) and the PNGs saved by the automatic autolock.
+matplotlib setup (color cycle, signal colors, safe-range bars) and the PNGs
+saved by the automatic autolock.
 
-Import this module before anything else imports matplotlib.pyplot, so the
-backend and color cycle are in place for every figure.
+Nothing here selects a GUI backend or uses pyplot: the GUI embeds figures
+with FigureCanvasTkAgg directly and PNGs are saved from a bare Figure. That
+keeps this module importable with no display attached (headless operation).
 """
 
 import os
 
 import matplotlib
-matplotlib.use("TkAgg")
 from matplotlib.artist import Artist
 from matplotlib.figure import Figure
 from matplotlib.lines import Line2D

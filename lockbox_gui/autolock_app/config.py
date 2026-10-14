@@ -90,6 +90,11 @@ class Settings:
     # --- Scan tab "constant output" entry (control out, PHYSICAL volts) ---
     CONSTANT_OUTPUT_VOLTAGE: float = 2.0
 
+    # --- Headless operation (see headless.py) ---
+    HEADLESS_ON_CLOSE: bool = False   # keep monitoring/logging/autolock running after the GUI closes
+    AUTOLOCK_ENGAGED: bool = False    # saved state, not a preference: lets autolock stay engaged
+                                      # across the GUI <-> headless hand-off
+
 
 settings = Settings()
 

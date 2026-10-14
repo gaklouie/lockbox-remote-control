@@ -17,6 +17,7 @@ import time
 
 import numpy as np
 
+from . import state
 from .channels import CHANNEL_CONVERTERS
 from .config import settings
 from .hardware import read_physical, set_control_out
@@ -29,6 +30,9 @@ MAX_STEP_GROWTH = 2.0
 
 def measure_point(v, pass_tag):
     """Set control out to v (physical volts), let it settle, read and publish all channels."""
+    if state.stop_event.is_set():
+        # Shutting down / handing the hardware to another program: stop sweeping at once.
+        raise RuntimeError("scan stopped because the program is shutting down")
     set_control_out(v)
     time.sleep(settings.SCAN_SETTLE_TIME)
     values = read_physical(num_samples=settings.NUM_SAMPLES_PER_POINT)

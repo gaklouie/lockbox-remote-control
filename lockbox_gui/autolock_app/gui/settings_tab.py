@@ -148,12 +148,29 @@ class SettingsTab(ttk.Frame):
             f"crossing sign = {settings.CROSSING_SIGN}")
         return True
 
-    def on_toggle_engage(self):
-        if state.autolock_engaged.is_set():
+    def set_engaged(self, engaged):
+        """
+        Engage or disengage autolock and update the button, status line and
+        log. The state is also saved, so a headless process taking over after
+        the GUI closes (and the next GUI taking over from it) keeps it.
+        """
+        mode_name = MODE_DISPLAY_NAMES[settings.AUTOLOCK_MODE]
+        if engaged:
+            state.autolock_engaged.set()
+            self.engage_var.set("Disengage Autolock")
+            self.status_label.configure(text=f"Autolock: engaged ({mode_name})")
+            self.app.monitor_panel.log(f"Autolock engaged ({mode_name}).")
+        else:
             state.autolock_engaged.clear()
             self.engage_var.set("Engage Autolock")
             self.status_label.configure(text="Autolock: disengaged")
             self.app.monitor_panel.log("Autolock disengaged.")
+        settings.AUTOLOCK_ENGAGED = engaged
+        self.app.save_settings()
+
+    def on_toggle_engage(self):
+        if state.autolock_engaged.is_set():
+            self.set_engaged(False)
             return
 
         reason = state.busy_reason()
@@ -162,10 +179,7 @@ class SettingsTab(ttk.Frame):
             return
         if not self.on_apply():
             return
-        state.autolock_engaged.set()
-        self.engage_var.set("Disengage Autolock")
-        self.status_label.configure(text=f"Autolock: engaged ({MODE_DISPLAY_NAMES[settings.AUTOLOCK_MODE]})")
-        self.app.monitor_panel.log(f"Autolock engaged ({MODE_DISPLAY_NAMES[settings.AUTOLOCK_MODE]}).")
+        self.set_engaged(True)
 
     def on_run_now(self):
         reason = state.busy_reason()
