@@ -24,7 +24,9 @@ window forwarding.
 
 ## Running it
 
-On the Pi, from this folder:
+For step-by-step setup on a new Pi, running it in the background, stopping
+it and troubleshooting, see [SETUP.md](SETUP.md). In short, on the Pi, from
+this folder:
 
     uv sync
     uv run python server.py
