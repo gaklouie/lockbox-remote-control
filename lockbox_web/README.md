@@ -1,13 +1,14 @@
-# Lockbox web service (prototype)
+# Lockbox web service
 
-A side project for trying the "always-on service" design. The working GUI in
-`../lockbox_gui` is not changed by anything here.
+The lockbox controller: an always-on service on the Pi plus a web page to
+watch and control it. It replaced the Tk GUI, which is archived in
+`../old/lockbox_gui` and no longer maintained.
 
 ## The idea
 
-In `lockbox_gui`, the program that draws the window is also the program that
-reads the ADC, logs to MQTT and relocks. Close the window and it all stops
-(unless its headless option is on), and only one person can use it at a time.
+In the old Tk GUI, the program that drew the window was also the program that
+read the ADC, logged to MQTT and relocked. Closing the window stopped it all,
+and only one person could use it at a time.
 
 Here those jobs are split:
 
@@ -33,31 +34,34 @@ this folder:
 
 Then browse to `http://<pi-address>:8000`. Options: `--host`, `--port`.
 
-Stop the Tk GUI (and its headless process) first: only one program may drive
-the hardware. The service refuses to start while the Tk GUI's headless
-process is running.
-
-It uses the same `.env` (MQTT broker login) and the same saved settings file
-(`~/.config/autolock_gui/settings.json`) as the Tk GUI. If autolock was
-engaged when the service last ran, it re-engages on start.
+The MQTT broker login goes in `.env` in this folder. Settings are saved in
+`~/.config/autolock_gui/settings.json` (the same file the old Tk GUI used, so
+existing settings carry over). If autolock was engaged when the service last
+ran, it re-engages on start.
 
 ## How it is built
 
-    server.py            the service: web server, shared state, commands
-    static/index.html    the page
-    static/app.js        page logic: WebSocket, tabs, forms
-    static/plot.js       small dependency-free canvas line plot
+    server.py                 the service: web server, shared state, commands
+    autolock_app/             hardware, logging, scans and lock logic
+        config.py             constants, the Settings dataclass, save/load of settings
+        state.py              cross-thread events and the worker -> service event queue
+        channels.py           ADC/DAC conversions to physical volts, signal names
+        hardware.py           I2C access to the MCP4728 DAC and ADS1115 ADC
+        telemetry.py          MQTT publishing (the InfluxDB/Grafana logging path)
+        signal_processing.py  smoothing, zero crossings, lock-range segments
+        scanning.py           sweeps of control out (uniform and adaptive spacing)
+        plotting.py           signal colors, saved autolock PNGs
+        locking.py            the two automatic autolock procedures
+        workers.py            background threads: monitor loop, manual scan
+    static/index.html         the page
+    static/app.js             page logic: WebSocket, tabs, forms
+    static/plot.js            small dependency-free canvas line plot
     static/style.css
-    ../lockbox_gui/icon.png, icon_32.png   browser-tab icon (shared with the Tk GUI)
-
-The lock logic is **not** copied. `server.py` imports the `autolock_app`
-package from `../lockbox_gui` (config, hardware, telemetry, scanning,
-locking, workers - everything except its Tk `gui/` modules), so a fix there
-applies to both programs.
+    static/icon.png, icon_32.png   browser-tab icon
 
 Flow of data:
 
-    worker threads -> state.gui_queue -> pump thread -> Hub (asyncio)
+    worker threads -> state.event_queue -> pump thread -> Hub (asyncio)
         -> JSON over one WebSocket (/ws) to every connected browser
 
 The Hub keeps a rolling history (recent readings, log tail, last scan), so a
@@ -90,12 +94,8 @@ else sweeping control out), so two browsers cannot start conflicting actions.
   going anywhere else.
 - **Start at boot.** Needs a systemd unit so the service starts with the Pi
   and restarts if it crashes.
-- **Hand-over with the Tk GUI.** The two programs don't negotiate; you stop
-  one to run the other.
 - **Saved autolock images** aren't shown in the page.
 - **Plots are basic**: no zoom or pan. `plot.js` could be swapped for a
   plotting library.
-- **Settings labels are duplicated** from the Tk GUI's Settings tab
-  (`SETTINGS_GROUPS` in `server.py`). They should move to one shared place.
 - **Who did what.** Log lines for manual actions show the browser's address,
   but there are no user names.

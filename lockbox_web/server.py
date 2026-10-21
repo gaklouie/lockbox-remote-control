@@ -1,19 +1,19 @@
 """
 Lockbox web service (prototype).
 
-One always-running program on the Pi owns the DAC/ADC and runs the same
-monitor / logging / autolock loop as the Tk GUI. Any number of browsers can
-open http://<pi>:8000 at the same time to watch and control it.
+One always-running program on the Pi owns the DAC/ADC and runs the
+monitor / logging / autolock loop. Any number of browsers can open
+http://<pi>:8000 at the same time to watch and control it.
 
     uv sync
     uv run python server.py [--host 0.0.0.0] [--port 8000]
 
-The lock logic is not duplicated: this imports the `autolock_app` package
-from ../lockbox_gui (everything except its Tk `gui/` modules).
+The hardware access, scans and lock logic live in the `autolock_app`
+package next to this file; this file is the web side.
 
 How the pieces talk:
 
-    worker threads --state.gui_queue--> pump thread --> asyncio queue
+    worker threads --state.event_queue--> pump thread --> asyncio queue
         --> Hub.run(): updates the shared history, then sends the event as
             JSON to every connected browser over a WebSocket (/ws)
 
@@ -45,25 +45,20 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-HERE = Path(__file__).resolve().parent
-sys.path.insert(0, str(HERE.parent / "lockbox_gui"))
-
-from autolock_app import config, hardware, headless, state, telemetry  # noqa: E402
-from autolock_app.channels import (DISPLAY_NAMES, ERROR_SIGNAL_NAMES,  # noqa: E402
-                                   OUTPUT_SIGNAL_NAMES, RANGE_NAMES)
-from autolock_app.config import (CHOICES, FIELD_TYPES, MODE_DISPLAY_NAMES,  # noqa: E402
+from autolock_app import config, hardware, state, telemetry
+from autolock_app.channels import DISPLAY_NAMES, ERROR_SIGNAL_NAMES, OUTPUT_SIGNAL_NAMES, RANGE_NAMES
+from autolock_app.config import (CHOICES, FIELD_TYPES, MODE_DISPLAY_NAMES, SETTINGS_PATH,
                                  coerce_value, save_settings, settings)
-from autolock_app.locking import autolock_once  # noqa: E402
-from autolock_app.plotting import SIGNAL_COLORS  # noqa: E402
-from autolock_app.workers import monitor_loop, run_manual_scan  # noqa: E402
+from autolock_app.locking import autolock_once
+from autolock_app.plotting import SIGNAL_COLORS
+from autolock_app.workers import monitor_loop, run_manual_scan
 
+HERE = Path(__file__).resolve().parent
 STATIC_DIR = HERE / "static"
-ICON_DIR = HERE.parent / "lockbox_gui"  # the Tk GUI's icon doubles as the browser-tab icon
 MAX_HISTORY_POINTS = 5000
 MAX_LOG_LINES = 300
 
 # Settings shown in the page's Settings tab: (group title, [(field, label), ...]).
-# Mirrors the Tk GUI's Settings tab (lockbox_gui/autolock_app/gui/settings_tab.py).
 SETTINGS_GROUPS = [
     ("Safe / Lock Range Parameters", [
         ("SLOW_OUTPUT_SAFE_MIN", "Slow output safe min (V)"),
@@ -225,7 +220,7 @@ def pump_worker_queue():
     """Thread: turn the workers' queue items into JSON-ready events for the hub."""
     while not state.stop_event.is_set():
         try:
-            item = state.gui_queue.get(timeout=0.5)
+            item = state.event_queue.get(timeout=0.5)
         except queue.Empty:
             continue
         kind = item[0]
@@ -456,18 +451,18 @@ async def index():
 
 @app.get("/icon.png")
 async def icon():
-    return FileResponse(ICON_DIR / "icon.png", media_type="image/png")
+    return FileResponse(STATIC_DIR / "icon.png", media_type="image/png")
 
 
 @app.get("/icon_32.png")
 async def icon_32():
-    return FileResponse(ICON_DIR / "icon_32.png", media_type="image/png")
+    return FileResponse(STATIC_DIR / "icon_32.png", media_type="image/png")
 
 
 @app.get("/favicon.ico")
 async def favicon():
     # Browsers ask for this by default even when the page names its own icon.
-    return FileResponse(ICON_DIR / "icon_32.png", media_type="image/png")
+    return FileResponse(STATIC_DIR / "icon_32.png", media_type="image/png")
 
 
 @app.websocket("/ws")
@@ -493,6 +488,20 @@ async def websocket_endpoint(ws: WebSocket):
         hub.clients.discard(ws)
 
 
+def archived_gui_headless_pid():
+    """
+    Process id of a headless process left running by the archived Tk GUI
+    (old/lockbox_gui), or None. It records itself in headless.pid next to the
+    settings file. Checked via /proc, so only on Linux (the Pi).
+    """
+    try:
+        pid = int(SETTINGS_PATH.with_name("headless.pid").read_text().strip())
+        cmdline = Path(f"/proc/{pid}/cmdline").read_bytes()
+    except (OSError, ValueError):
+        return None
+    return pid if b"--headless" in cmdline else None
+
+
 def main():
     parser = argparse.ArgumentParser(description="Lockbox web service (prototype)")
     parser.add_argument("--host", default="0.0.0.0", help="address to listen on (default: all interfaces)")
@@ -500,9 +509,10 @@ def main():
     args = parser.parse_args()
 
     # Only one program may drive the DAC/ADC.
-    if headless.running_pid() is not None:
-        sys.exit("The Tk GUI's headless process is running and owns the hardware. Stop it first:\n"
-                 "open the Tk GUI and untick 'Keep running after GUI closes', then close it.")
+    old_pid = archived_gui_headless_pid()
+    if old_pid is not None:
+        sys.exit(f"The archived Tk GUI's headless process (process {old_pid}) is still running and "
+                 f"driving the hardware. Stop it first:\n    kill {old_pid}")
 
     global web_server
     web_server = uvicorn.Server(uvicorn.Config(app, host=args.host, port=args.port, log_level="warning"))

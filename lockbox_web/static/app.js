@@ -363,7 +363,7 @@ $("lock-selected").addEventListener("click", () => {
 $("release").addEventListener("click", () => send({cmd: "release"}));
 $("set-output").addEventListener("click", () => send({cmd: "set_output", voltage: $("output-voltage").value}));
 
-// Like the Tk GUI, engaging or running autolock applies the settings form first;
+// Engaging or running autolock applies the settings form first;
 // the service refuses the whole command if any setting is invalid.
 $("apply-settings").addEventListener("click", () => send({cmd: "apply_settings", values: collectSettings()}));
 $("toggle-engage").addEventListener("click", () => {

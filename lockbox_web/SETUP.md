@@ -87,12 +87,12 @@ access token as the password, or set up an SSH key on the Pi.
 
 The service sends its readings to the MQTT broker, which feeds InfluxDB and
 Grafana. It needs the broker address and login in a file named `.env` in
-the `lockbox_gui` folder. This file is never committed to Git.
+the `lockbox_web` folder. This file is never committed to Git.
 
 **On the Pi:**
 
 ```bash
-nano ~/lockbox-remote-control/lockbox_gui/.env
+nano ~/lockbox-remote-control/lockbox_web/.env
 ```
 
 Put in (with your real values):
@@ -107,8 +107,12 @@ MQTT_PORT=1883
 `MQTT_PORT` is optional (1883 is the default). Save with `Ctrl-O`, `Enter`,
 then exit with `Ctrl-X`.
 
-If this Pi already runs the Tk GUI, the `.env` file is probably already there,
-and the web service uses the same one.
+If this Pi used the old Tk GUI, its `.env` file is in the old `lockbox_gui`
+folder. Move it instead of retyping it:
+
+```bash
+mv ~/lockbox-remote-control/lockbox_gui/.env ~/lockbox-remote-control/lockbox_web/.env
+```
 
 ### 1.7 Install the service's packages
 
@@ -141,12 +145,12 @@ All of these are run **on the Pi**, from the `lockbox_web` folder:
 cd ~/lockbox-remote-control/lockbox_web
 ```
 
-### Before starting: close the Tk GUI
+### Before starting: nothing else may drive the hardware
 
-Only one program can drive the DAC/ADC at a time. If the Tk GUI is open,
-close it. If its **"Keep running after GUI closes (headless)"** box is
-ticked, untick it first, so its background process stops too. The service
-refuses to start while that background process is running.
+Only one program can drive the DAC/ADC at a time. On a Pi that used the old
+Tk GUI, make sure it isn't open and that its background ("headless") process
+isn't running. The service checks for that process and refuses to start,
+telling you how to stop it.
 
 ### Start it (stops when you close SSH)
 
@@ -234,7 +238,7 @@ pkill -9 -f "python server.py"
 
 When the service stops, the DAC holds its last values: control out and the
 B/C/D lines stay where they were. Nothing is logged and nothing relocks until
-you start the service (or the Tk GUI) again.
+you start the service again.
 
 ### Use a different port
 
@@ -261,8 +265,8 @@ update, also refresh the page in each open browser.
 ## 3. Things to know
 
 - **Settings** are saved on the Pi in `~/.config/autolock_gui/settings.json`
-  and shared with the Tk GUI, so ranges, scan parameters and the lockbox name
-  carry over between the two.
+  (the same file the old Tk GUI used, so a Pi's ranges, scan parameters and
+  lockbox name carry over).
 - **Autolock after a restart:** if autolock was engaged when the service
   stopped, it is engaged again when the service starts.
 - **Saved autolock plots** go in `lockbox_web/scan_plots/` (when "Save
@@ -278,9 +282,9 @@ update, also refresh the page in each open browser.
 
 | What you see | What to do |
 |---|---|
-| `The Tk GUI's headless process is running and owns the hardware` | Open the Tk GUI, untick "Keep running after GUI closes", close it, then start the service. |
+| `The archived Tk GUI's headless process ... is still running` | Run the `kill` command it prints, then start the service again. |
 | `address already in use` | The service (or something else) is already using that port. Check with `pgrep -af "python server.py"`, stop the old one, or use `--port`. |
-| An error mentioning MQTT, `connect`, or `ConnectionRefusedError` at startup | The `.env` file is missing or wrong, or the broker can't be reached from the Pi. Check `lockbox_gui/.env` (step 1.6). |
+| An error mentioning MQTT, `connect`, or `ConnectionRefusedError` at startup | The `.env` file is missing or wrong, or the broker can't be reached from the Pi. Check `lockbox_web/.env` (step 1.6). |
 | An error mentioning I2C, `No I2C device`, or `ValueError` at startup | I2C is off or a chip isn't detected. Repeat steps 1.1 and 1.3. |
 | The page doesn't load in the browser | Make sure the "running" line has appeared. Use the numeric address rather than `.local`, and check your computer is on the same network as the Pi. |
 | The page says **"Disconnected - retrying"** | The service stopped or restarted. Check it with `pgrep -af "python server.py"` and look at `server.log`. The page reconnects by itself once the service is back. |
