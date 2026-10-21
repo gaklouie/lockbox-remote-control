@@ -52,6 +52,9 @@ class Settings:
     # --- Identity (edited from the page header, not the Settings tab) ---
     DEVICE_NAME: str = ""
 
+    # --- Calibration ---
+    ERROR_READ_OFFSET: float = 0.0   # V, added to the physical error reading (see channels.to_error)
+
     # --- Safe range parameters ---
     SLOW_OUTPUT_SAFE_MIN: float = -10.0
     SLOW_OUTPUT_SAFE_MAX: float = 10.0

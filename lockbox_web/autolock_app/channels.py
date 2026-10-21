@@ -8,7 +8,7 @@ control_out_* functions convert between its raw DAC volts and the
 physical volts at the circuit's output.
 """
 
-from .config import DAC_SHIFT_GAIN, DAC_SHIFT_OFFSET
+from .config import DAC_SHIFT_GAIN, DAC_SHIFT_OFFSET, settings
 
 
 # --------------------------------------------------------------------------
@@ -23,7 +23,9 @@ def to_fast_output(adc_voltage):
 
 
 def to_error(adc_voltage):
-    return 18 * (-0.185185 + 0.0925927 * adc_voltage)
+    # ERROR_READ_OFFSET corrects a calibration offset in this conversion: a true
+    # zero must read as zero, or small zero crossings are missed or misplaced.
+    return 18 * (-0.185185 + 0.0925927 * adc_voltage) + settings.ERROR_READ_OFFSET
 
 
 def to_dc_err(adc_voltage):

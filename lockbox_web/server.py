@@ -60,6 +60,9 @@ MAX_LOG_LINES = 300
 
 # Settings shown in the page's Settings tab: (group title, [(field, label), ...]).
 SETTINGS_GROUPS = [
+    ("Calibration", [
+        ("ERROR_READ_OFFSET", "Error read offset (V, added to error)"),
+    ]),
     ("Safe / Lock Range Parameters", [
         ("SLOW_OUTPUT_SAFE_MIN", "Slow output safe min (V)"),
         ("SLOW_OUTPUT_SAFE_MAX", "Slow output safe max (V)"),
