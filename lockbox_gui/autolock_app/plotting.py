@@ -46,16 +46,20 @@ def _right_of_axes(ax, points):
     return ax.transAxes + ScaledTranslation(points / 72.0, 0, ax.figure.dpi_scale_trans)
 
 
-def place_legend_outside(ax, fontsize=8, extra_handles=(), n_bars=0):
+def place_legend_outside(ax, fontsize=8, extra_handles=(), n_bars=0, extra_offset=0.0, handles=None):
     """
     Put a legend to the right of the axes (and of any safe-range bars)
     instead of overlapping the data. extra_handles are added to the
-    legend after the axes' own labelled artists.
+    legend after the axes' own labelled artists (or after `handles`, when
+    given, which replace them - e.g. to combine twinned axes in a chosen
+    order). extra_offset (points) leaves room for anything else beside the
+    axes, e.g. a right-hand y axis.
     """
-    handles, labels = ax.get_legend_handles_labels()
-    handles += list(extra_handles)
-    labels += [h.get_label() for h in extra_handles]
-    offset = BAR_GAP + n_bars * BAR_SPACING + 4.0 if n_bars else 8.0
+    if handles is None:
+        handles, _ = ax.get_legend_handles_labels()
+    handles = list(handles) + list(extra_handles)
+    labels = [h.get_label() for h in handles]
+    offset = (BAR_GAP + n_bars * BAR_SPACING + 4.0 if n_bars else 8.0) + extra_offset
     ax.legend(handles, labels, loc="upper left", bbox_to_anchor=(1.0, 1.0),
               bbox_transform=_right_of_axes(ax, offset), fontsize=fontsize, borderaxespad=0.0)
 

@@ -17,7 +17,7 @@ let scanInputsDirty = false;
 let monitorRedrawQueued = false;
 
 const plots = {
-  scanErr: new LinePlot($("scan-err-plot"), {xLabel: "Control out, physical (V)", yLabel: "Error signals (V)"}),
+  scanErr: new LinePlot($("scan-err-plot"), {xLabel: "Control out, physical (V)", yLabel: "Error (V)"}),
   scanOut: new LinePlot($("scan-out-plot"), {xLabel: "Control out, physical (V)", yLabel: "Outputs (V)"}),
   monitorOut: new LinePlot($("monitor-out-plot"), {xLabel: "Time (s)", yLabel: "Voltage (V)"}),
   monitorErr: new LinePlot($("monitor-err-plot"), {xLabel: "Time (s)", yLabel: "Voltage (V)"}),
@@ -234,9 +234,12 @@ function drawScan() {
     rangeBar("slow_output", s.SLOW_OUTPUT_SAFE_MIN, s.SLOW_OUTPUT_SAFE_MAX),
     rangeBar("fast_output", s.FAST_OUTPUT_SAFE_MIN, s.FAST_OUTPUT_SAFE_MAX),
   ];
+  // Same right margin on both scan plots (room for 2 range bars + the error plot's
+  // right axis), so their control-out axes line up.
+  const rightMargin = 16 + 2 * 11 + 54;
   if (!scan) {
-    plots.scanErr.draw({series: []});
-    plots.scanOut.draw({series: [], rangeBars: outBars});
+    plots.scanErr.draw({series: [], rightMargin});
+    plots.scanOut.draw({series: [], rangeBars: outBars, rightMargin});
     $("candidates").textContent = "";
     return;
   }
@@ -248,17 +251,26 @@ function drawScan() {
     x: scan.voltages, y: scan.trace[name], markers: true,
   });
 
+  // Error on the left axis, DC error on its own right axis: a ~10 mV error
+  // signal would otherwise be flattened by a DC error of several volts.
+  // Candidates (and the smoothed curve) go on the axis of the signal searched.
+  const searchedAxis = zeroCrossing ? "left" : "right";
+  const dcErr = page.signals.dc_err;
   plots.scanErr.draw({
     series: [
-      ...page.error_signals.map((name) => ({...line(name), alpha: 0.6})),
-      {label: `${page.signals[searched].label} (smoothed)`, color: "#000", x: scan.voltages, y: scan.smoothed, width: 1.2},
+      {...line("error"), alpha: 0.6},
+      {...line("dc_err"), alpha: 0.6, axis: "right", label: `${dcErr.label} (right axis)`},
+      {label: `${page.signals[searched].label} (smoothed)`, color: "#000", x: scan.voltages, y: scan.smoothed,
+       width: 1.2, axis: searchedAxis},
     ],
+    rightAxis: {label: `${dcErr.label} (V)`, color: dcErr.color},
     hLines: zeroCrossing ? [0] : [],
-    vLines: scan.candidates.map((c, i) => ({x: c.lock_voltage, y: markerY, label: String(i + 1)})),
+    vLines: scan.candidates.map((c, i) => ({x: c.lock_voltage, y: markerY, label: String(i + 1), axis: searchedAxis})),
     vSpans: zeroCrossing ? [] : scan.candidates.map((c) => ({start: c.start, end: c.end})),
-    rangeBars: zeroCrossing ? [] : [rangeBar("dc_err", s.DC_ERR_SAFE_MIN, s.DC_ERR_SAFE_MAX)],
+    rangeBars: zeroCrossing ? [] : [{...rangeBar("dc_err", s.DC_ERR_SAFE_MIN, s.DC_ERR_SAFE_MAX), axis: "right"}],
+    rightMargin,
   });
-  plots.scanOut.draw({series: page.output_signals.map(line), rangeBars: outBars});
+  plots.scanOut.draw({series: page.output_signals.map(line), rangeBars: outBars, rightMargin});
 
   // Rebuild the candidate list only when the scan changes, so a selection survives status updates.
   const list = $("candidates");

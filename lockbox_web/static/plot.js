@@ -2,12 +2,16 @@
 //
 //   const plot = new LinePlot(canvasElement, {xLabel: "Time (s)", yLabel: "Voltage (V)"});
 //   plot.draw({
-//     series: [{label, color, x: [...], y: [...], markers: false, alpha: 1}],
+//     series: [{label, color, x: [...], y: [...], markers: false, alpha: 1, axis: "left"}],
+//     rightAxis: {label, color},     // optional second y axis on the right, for series with
+//                                    // axis: "right" (each axis is scaled to its own series)
 //     xRange: [min, max],            // optional; otherwise fitted to the data
-//     hLines: [0],                   // optional dashed horizontal lines
-//     vLines: [{x, label}],          // optional dotted vertical lines with a label
+//     hLines: [0],                   // optional dashed horizontal lines (left axis)
+//     vLines: [{x, y, label, axis}], // optional dotted vertical lines with a labelled marker at y
 //     vSpans: [{start, end}],        // optional shaded vertical bands
-//     rangeBars: [{lo, hi, color, label}],  // optional bars beside the right edge
+//     rangeBars: [{lo, hi, color, label, axis}],  // optional bars beside the right edge
+//     rightMargin: 92,               // optional fixed space (px) right of the plot area, so
+//                                    // plots stacked above each other line up
 //   });
 
 class LinePlot {
@@ -60,11 +64,18 @@ class LinePlot {
 
     const series = data.series || [];
     const rangeBars = data.rangeBars || [];
-    const box = {left: 58, right: width - 16 - rangeBars.length * 11, top: 10, bottom: height - 38};
+    const rightSeries = series.filter((s) => s.axis === "right");
+    const right = data.rightAxis && rightSeries.length ? data.rightAxis : null;
+    const rightAxisWidth = right ? 54 : 0;   // tick numbers + rotated title
+    const rightMargin = data.rightMargin || 16 + rangeBars.length * 11 + rightAxisWidth;
+    const box = {left: 58, right: width - rightMargin, top: 10, bottom: height - 38};
     const [x0, x1] = data.xRange || LinePlot.extent(series.map((s) => s.x), 0);
-    const [y0, y1] = LinePlot.extent(series.map((s) => s.y), 0.08);
+    const [y0, y1] = LinePlot.extent(series.filter((s) => s.axis !== "right").map((s) => s.y), 0.08);
+    const [r0, r1] = right ? LinePlot.extent(rightSeries.map((s) => s.y), 0.08) : [0, 1];
     const px = (x) => box.left + ((x - x0) / (x1 - x0 || 1)) * (box.right - box.left);
     const py = (y) => box.bottom - ((y - y0) / (y1 - y0 || 1)) * (box.bottom - box.top);
+    const pyRight = (y) => box.bottom - ((y - r0) / (r1 - r0 || 1)) * (box.bottom - box.top);
+    const yScale = (axis) => (axis === "right" && right ? pyRight : py);
 
     // Grid, ticks and labels.
     ctx.strokeStyle = "#e3e3e3";
@@ -96,6 +107,27 @@ class LinePlot {
       ctx.restore();
     }
 
+    // Right axis: numbers and title in its own color, outside any range bars.
+    if (right) {
+      const rt = LinePlot.niceTicks(r0, r1, (box.bottom - box.top) / 45);
+      const labelX = box.right + 4 + rangeBars.length * 11 + 2;
+      ctx.fillStyle = right.color;
+      ctx.strokeStyle = right.color;
+      ctx.textAlign = "left";
+      ctx.textBaseline = "middle";
+      for (const v of rt.ticks) {
+        ctx.beginPath(); ctx.moveTo(box.right - 5, pyRight(v)); ctx.lineTo(box.right, pyRight(v)); ctx.stroke();
+        ctx.fillText(v.toFixed(rt.decimals), labelX, pyRight(v));
+      }
+      ctx.save();
+      ctx.translate(width - 8, (box.top + box.bottom) / 2);
+      ctx.rotate(Math.PI / 2);
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(right.label, 0, 0);
+      ctx.restore();
+    }
+
     // Everything below is clipped to the plot area.
     ctx.save();
     ctx.beginPath();
@@ -123,15 +155,16 @@ class LinePlot {
       ctx.strokeStyle = s.color;
       ctx.fillStyle = s.color;
       ctx.lineWidth = s.width || 1.5;
+      const sy = yScale(s.axis);
       ctx.beginPath();
       for (let i = 0; i < s.x.length; i++) {
-        if (i === 0) ctx.moveTo(px(s.x[i]), py(s.y[i]));
-        else ctx.lineTo(px(s.x[i]), py(s.y[i]));
+        if (i === 0) ctx.moveTo(px(s.x[i]), sy(s.y[i]));
+        else ctx.lineTo(px(s.x[i]), sy(s.y[i]));
       }
       ctx.stroke();
       if (s.markers) {
         for (let i = 0; i < s.x.length; i++) {
-          ctx.beginPath(); ctx.arc(px(s.x[i]), py(s.y[i]), 1.6, 0, 2 * Math.PI); ctx.fill();
+          ctx.beginPath(); ctx.arc(px(s.x[i]), sy(s.y[i]), 1.6, 0, 2 * Math.PI); ctx.fill();
         }
       }
     }
@@ -144,7 +177,7 @@ class LinePlot {
     ctx.font = "bold 12px system-ui, sans-serif";
     for (const line of data.vLines || []) {
       if (line.label === undefined) continue;
-      const y = line.y === undefined ? box.top + 16 : py(line.y);
+      const y = line.y === undefined ? box.top + 16 : yScale(line.axis)(line.y);
       ctx.beginPath(); ctx.arc(px(line.x), y, 3.5, 0, 2 * Math.PI); ctx.fill();
       ctx.fillText(line.label, px(line.x), y - 6);
     }
@@ -157,14 +190,15 @@ class LinePlot {
 
     // Range bars just outside the right edge, cut off at the plot's top and bottom.
     rangeBars.forEach((bar, i) => {
-      const top = Math.max(box.top, Math.min(box.bottom, py(bar.hi)));
-      const bottom = Math.max(box.top, Math.min(box.bottom, py(bar.lo)));
+      const by = yScale(bar.axis);
+      const top = Math.max(box.top, Math.min(box.bottom, by(bar.hi)));
+      const bottom = Math.max(box.top, Math.min(box.bottom, by(bar.lo)));
       ctx.fillStyle = bar.color;
       ctx.globalAlpha = 0.6;
       const x = box.right + 4 + i * 11;
       if (bottom - top < 1) {
         // Range entirely off-screen: a small arrow pointing toward it.
-        const up = py(bar.lo) < box.top;
+        const up = by(bar.lo) < box.top;
         const tip = up ? box.top : box.bottom;
         ctx.beginPath();
         ctx.moveTo(x + 3.5, tip);

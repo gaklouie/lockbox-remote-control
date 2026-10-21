@@ -8,9 +8,10 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolb
 from matplotlib.figure import Figure
 
 from .. import hardware, state
-from ..channels import DISPLAY_NAMES, ERROR_SIGNAL_NAMES, OUTPUT_SIGNAL_NAMES
+from ..channels import DISPLAY_NAMES, OUTPUT_SIGNAL_NAMES
 from ..config import coerce_value, settings
-from ..plotting import SIGNAL_COLORS, draw_safe_range_bars, place_legend_outside
+from ..plotting import (BAR_GAP, BAR_SPACING, SIGNAL_COLORS, draw_safe_range_bars,
+                        place_legend_outside)
 from ..workers import run_manual_scan
 
 
@@ -79,6 +80,7 @@ class ScanTab(ttk.Frame):
 
         fig = Figure(figsize=(10, 6))
         self.ax_err = fig.add_subplot(211)
+        self.ax_dc = self.ax_err.twinx()   # DC error gets its own right-hand scale
         self.ax_out = fig.add_subplot(212)
         self.fig = fig
 
@@ -162,39 +164,11 @@ class ScanTab(ttk.Frame):
 
         self.ax_err.clear()
         self.ax_out.clear()
-
-        # Small markers show where the (possibly adaptive) scan actually sampled.
-        for name in ERROR_SIGNAL_NAMES:
-            self.ax_err.plot(data["voltages"], data["trace"][name], ".-", markersize=3,
-                             color=SIGNAL_COLORS[name], label=DISPLAY_NAMES[name], alpha=0.6)
-        self.ax_err.plot(data["voltages"], data["signal_smoothed"], "k-",
-                         label=f"{DISPLAY_NAMES['error' if mode == 'zero_crossing' else 'dc_err']} (smoothed)")
-
-        if mode == "zero_crossing":
-            self.ax_err.axhline(0, color="black", linewidth=0.8, linestyle="--")
-            marker_y = 0
-        else:
-            marker_y = (settings.DC_ERR_SAFE_MIN + settings.DC_ERR_SAFE_MAX) / 2
-
-        # Visually indicate every candidate: shading/lines, plus a numbered marker
-        # matching the candidate list order below.
-        for idx, c in enumerate(self.current_candidates):
-            if mode == "zero_crossing":
-                self.ax_err.axvline(c["lock_voltage"], color="gray", linestyle=":", alpha=0.6)
-            else:
-                self.ax_err.axvspan(c["start"], c["end"], color="gray", alpha=0.2)
-            self.ax_err.plot(c["lock_voltage"], marker_y, "o", color="black", markersize=6)
-            self.ax_err.annotate(str(idx + 1), (c["lock_voltage"], marker_y),
-                                 textcoords="offset points", xytext=(0, 8),
-                                 ha="center", fontsize=8, fontweight="bold")
-
-        self.ax_err.set_xlabel("Control out, physical (V)")
-        self.ax_err.set_ylabel("Error signals (V)")
-        # The dc_err safe range only matters when this scan searched it.
-        dc_err_range = [("dc_err", settings.DC_ERR_SAFE_MIN, settings.DC_ERR_SAFE_MAX)]
-        bars, handles = draw_safe_range_bars(self.ax_err, dc_err_range if mode == "dc_err_range" else [])
-        place_legend_outside(self.ax_err, extra_handles=handles, n_bars=len(bars))
-        self.ax_err.grid(True, alpha=0.3)
+        # Recreate the twin rather than clearing it: clearing a twinned axes
+        # can lose its right-hand tick/label placement.
+        self.ax_dc.remove()
+        self.ax_dc = self.ax_err.twinx()
+        self._plot_error_signals(data, mode)
 
         for name in OUTPUT_SIGNAL_NAMES:
             self.ax_out.plot(data["voltages"], data["trace"][name], ".-", markersize=3,
@@ -209,11 +183,73 @@ class ScanTab(ttk.Frame):
         self.ax_out.grid(True, alpha=0.3)
 
         self.fig.tight_layout()
-        self.fig.subplots_adjust(right=0.75)
+        self.fig.subplots_adjust(right=0.69)  # room for the right axis, bars and legends
         self.canvas.draw_idle()
 
         for idx, c in enumerate(self.current_candidates):
             self.candidate_list.insert(tk.END, f"{idx + 1}. {c['label']}")
+
+    # Room beside the error plot, right of any lock-range bar, for the right axis's
+    # tick labels and title, so the legend clears them (points).
+    RIGHT_AXIS_WIDTH = 50.0
+
+    def _plot_error_signals(self, data, mode):
+        """
+        Error on the left axis and DC error on its own right axis, so a ~10 mV
+        error signal isn't flattened by a DC error of several volts. The right
+        axis's numbers and title are drawn in DC error's color.
+        """
+        ax_err, ax_dc = self.ax_err, self.ax_dc
+        voltages = data["voltages"]
+        dc_color = SIGNAL_COLORS["dc_err"]
+        on_dc_axis = mode == "dc_err_range"     # the searched signal sets where candidates sit
+        candidate_ax = ax_dc if on_dc_axis else ax_err
+
+        # Small markers show where the (possibly adaptive) scan actually sampled.
+        ax_err.plot(voltages, data["trace"]["error"], ".-", markersize=3,
+                    color=SIGNAL_COLORS["error"], label=DISPLAY_NAMES["error"], alpha=0.6)
+        ax_dc.plot(voltages, data["trace"]["dc_err"], ".-", markersize=3,
+                   color=dc_color, label=f"{DISPLAY_NAMES['dc_err']} (right axis)", alpha=0.6)
+        searched = "dc_err" if on_dc_axis else "error"
+        candidate_ax.plot(voltages, data["signal_smoothed"], "k-",
+                          label=f"{DISPLAY_NAMES[searched]} (smoothed)")
+
+        if on_dc_axis:
+            marker_y = (settings.DC_ERR_SAFE_MIN + settings.DC_ERR_SAFE_MAX) / 2
+        else:
+            ax_err.axhline(0, color="black", linewidth=0.8, linestyle="--")
+            marker_y = 0
+
+        # Visually indicate every candidate: shading/lines, plus a numbered marker
+        # matching the candidate list order below.
+        for idx, c in enumerate(self.current_candidates):
+            if on_dc_axis:
+                ax_err.axvspan(c["start"], c["end"], color="gray", alpha=0.2)
+            else:
+                ax_err.axvline(c["lock_voltage"], color="gray", linestyle=":", alpha=0.6)
+            candidate_ax.plot(c["lock_voltage"], marker_y, "o", color="black", markersize=6)
+            candidate_ax.annotate(str(idx + 1), (c["lock_voltage"], marker_y),
+                                  textcoords="offset points", xytext=(0, 8),
+                                  ha="center", fontsize=8, fontweight="bold")
+
+        ax_err.set_xlabel("Control out, physical (V)")
+        ax_err.set_ylabel(f"{DISPLAY_NAMES['error']} (V)")
+        ax_dc.set_ylabel(f"{DISPLAY_NAMES['dc_err']} (V)", color=dc_color)
+        ax_err.grid(True, alpha=0.3)
+
+        # The lock-range bar (DC error mode only) sits against the plot edge, on the
+        # DC error scale; the right axis's ticks point inward and its numbers
+        # move out past the bar.
+        dc_err_range = [("dc_err", settings.DC_ERR_SAFE_MIN, settings.DC_ERR_SAFE_MAX)]
+        bars, bar_handles = draw_safe_range_bars(ax_dc, dc_err_range if on_dc_axis else [])
+        ax_dc.tick_params(axis="y", colors=dc_color, direction="in" if bars else "out",
+                          pad=BAR_GAP + len(bars) * BAR_SPACING + 2 if bars else 3.5)
+
+        # One legend for both axes (left-axis entries first), attached to the
+        # twin so it draws on top.
+        handles = ax_err.get_legend_handles_labels()[0] + ax_dc.get_legend_handles_labels()[0]
+        place_legend_outside(ax_dc, handles=handles, extra_handles=bar_handles, n_bars=len(bars),
+                             extra_offset=self.RIGHT_AXIS_WIDTH)
 
     def on_lock_selected(self):
         reason = state.busy_reason()
