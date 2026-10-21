@@ -435,6 +435,20 @@ app = FastAPI(title="Lockbox web service", lifespan=lifespan)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 
+@app.middleware("http")
+async def always_check_for_newer_page(request, call_next):
+    """
+    Tell browsers to check back before reusing their saved copy of the page,
+    its scripts and styles. Without this, a browser can keep running the old
+    app.js/plot.js after the service is updated. The check is cheap: an
+    unchanged file comes back as a tiny "not modified" reply.
+    """
+    response = await call_next(request)
+    if request.url.path == "/" or request.url.path.startswith("/static/"):
+        response.headers["Cache-Control"] = "no-cache"
+    return response
+
+
 @app.get("/")
 async def index():
     return FileResponse(STATIC_DIR / "index.html")
