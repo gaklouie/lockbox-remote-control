@@ -12,6 +12,7 @@
 //     rangeBars: [{lo, hi, color, label, axis}],  // optional bars beside the right edge
 //     rightMargin: 92,               // optional fixed space (px) right of the plot area, so
 //                                    // plots stacked above each other line up
+//     message: "text",               // optional note centred in the plot area (e.g. no data)
 //   });
 
 class LinePlot {
@@ -187,6 +188,13 @@ class LinePlot {
     ctx.strokeStyle = "#333";
     ctx.lineWidth = 1;
     ctx.strokeRect(box.left, box.top, box.right - box.left, box.bottom - box.top);
+
+    if (data.message) {
+      ctx.fillStyle = "#666";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(data.message, (box.left + box.right) / 2, (box.top + box.bottom) / 2);
+    }
 
     // Range bars just outside the right edge, cut off at the plot's top and bottom.
     rangeBars.forEach((bar, i) => {

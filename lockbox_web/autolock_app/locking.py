@@ -19,6 +19,7 @@ RESET_VOLTAGE_ON_FAILURE and B/C/D stay HIGH.
 import time
 
 from . import state
+from .channels import CHANNEL_CONVERTERS
 from .config import settings
 from .hardware import restart_pid, set_control_out, short_caps_and_block_pid
 from .plotting import save_autolock_scan_plot
@@ -27,7 +28,9 @@ from .signal_processing import find_crossing_candidates, find_safe_range_segment
 
 
 def _send_reading(values, _fraction_done):
-    state.event_queue.put(("reading", time.time(), values))
+    # A fast sweep reads only one signal; the live monitor needs all four.
+    if len(values) == len(CHANNEL_CONVERTERS):
+        state.event_queue.put(("reading", time.time(), values))
 
 
 def _coarse_pass(track_signal):
@@ -36,11 +39,12 @@ def _coarse_pass(track_signal):
                  track_signal, "coarse", on_point=_send_reading)
 
 
-def _fine_pass(center, coarse_step):
+def _fine_pass(center, coarse_step, track_signal):
     """Uniform sweep of +/- one coarse step around `center`, clipped to the scan range."""
     fine_min = max(settings.SCAN_MIN_VOLTAGE, center - coarse_step)
     fine_max = min(settings.SCAN_MAX_VOLTAGE, center + coarse_step)
-    return uniform_sweep(fine_min, fine_max, settings.NUM_FINE_POINTS, "fine", on_point=_send_reading)
+    return uniform_sweep(fine_min, fine_max, settings.NUM_FINE_POINTS, track_signal, "fine",
+                         on_point=_send_reading)
 
 
 def _coarse_step():
@@ -75,7 +79,7 @@ def _autolock_zero_crossing(log_fn):
     log_fn(f"Coarse pass found {len(coarse_crossings)} crossing(s); "
            f"largest near {coarse_best_v:.4f} V. Refining...")
 
-    fine_v, fine_trace = _fine_pass(coarse_best_v, coarse_step)
+    fine_v, fine_trace = _fine_pass(coarse_best_v, coarse_step, "error")
     fine_smoothed = smooth_signal(fine_v, fine_trace["error"], settings.SMOOTHING_WINDOW)
     fine_crossings = find_crossing_candidates(fine_v, fine_smoothed, settings.CROSSING_SIGN,
                                               settings.MIN_CROSSING_SLOPE_FRACTION)
@@ -123,7 +127,7 @@ def _autolock_dc_err_range(log_fn):
     log_fn(f"Coarse pass found {len(coarse_segments)} lock-range region(s); "
            f"widest centered near {coarse_mid:.4f} V. Refining...")
 
-    fine_v, fine_trace = _fine_pass(coarse_mid, coarse_step)
+    fine_v, fine_trace = _fine_pass(coarse_mid, coarse_step, "dc_err")
     fine_smoothed = smooth_signal(fine_v, fine_trace["dc_err"], settings.SMOOTHING_WINDOW)
     fine_segments = find_safe_range_segments(fine_v, fine_smoothed,
                                              settings.DC_ERR_SAFE_MIN, settings.DC_ERR_SAFE_MAX)

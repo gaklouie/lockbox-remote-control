@@ -7,6 +7,7 @@ Results go to the web service through state.event_queue.
 import time
 
 from . import state
+from .channels import DISPLAY_NAMES
 from .config import MODE_DISPLAY_NAMES, settings
 from .hardware import read_physical, short_caps_and_block_pid
 from .locking import autolock_once
@@ -77,10 +78,12 @@ def run_manual_scan(v_min, v_max, num_points, mode, crossing_sign, adaptive):
         short_caps_and_block_pid()
 
         track_signal = "error" if mode == "zero_crossing" else "dc_err"
+        started = time.time()
         voltages, trace = sweep(
             v_min, v_max, num_points, track_signal, "manual", adaptive=adaptive,
             on_point=lambda _values, fraction: state.event_queue.put(("scan_progress", fraction)),
         )
+        duration = time.time() - started
 
         if mode == "zero_crossing":
             signal_smoothed = smooth_signal(voltages, trace["error"], settings.SMOOTHING_WINDOW)
@@ -105,7 +108,10 @@ def run_manual_scan(v_min, v_max, num_points, mode, crossing_sign, adaptive):
             "voltages": voltages, "trace": trace, "mode": mode,
             "signal_smoothed": signal_smoothed, "candidates": candidates,
         }))
-        state.log(f"Manual scan complete - {len(voltages)} points, {len(candidates)} candidate(s) found.")
+        state.log(f"Manual scan complete - {len(voltages)} points in {duration:.2f} s "
+                  f"({1000 * duration / len(voltages):.1f} ms/point"
+                  f"{', fast: ' + DISPLAY_NAMES[track_signal] + ' only' if settings.FAST_SWEEP else ''}), "
+                  f"{len(candidates)} candidate(s) found.")
     except ScanStopped as exc:
         # Control out stays where the sweep stopped; B/C/D stay HIGH (PID blocked).
         state.log(f"Manual scan {exc}. B/C/D left high (PID off).")

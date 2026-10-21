@@ -281,6 +281,8 @@ function drawScan() {
     label: page.signals[name].label, color: page.signals[name].color,
     x: scan.voltages, y: scan.trace[name], markers: true,
   });
+  // A fast sweep measures only the searched signal; the others aren't in the trace.
+  const measured = (name) => name in scan.trace;
 
   // Error on the left axis, DC error on its own right axis: a ~10 mV error
   // signal would otherwise be flattened by a DC error of several volts.
@@ -293,8 +295,8 @@ function drawScan() {
                     y: scan.smoothed, width: 1.2, axis: searchedAxis};
   plots.scanErr.draw({
     series: [
-      {...line("error"), alpha: 0.6},
-      ...(showDc ? [dcErrorSeries(line("dc_err"))] : []),
+      ...(measured("error") ? [{...line("error"), alpha: 0.6}] : []),
+      ...(showDc && measured("dc_err") ? [dcErrorSeries(line("dc_err"))] : []),
       ...(zeroCrossing || showDc ? [smoothed] : []),
     ],
     rightAxis: dcErrorAxis(),
@@ -306,7 +308,12 @@ function drawScan() {
     rangeBars: !zeroCrossing && showDc ? [dcErrorLockRangeBar(s)] : [],
     rightMargin,
   });
-  plots.scanOut.draw({series: page.output_signals.map(line), rangeBars: outBars, rightMargin});
+  const outputs = page.output_signals.filter(measured);
+  plots.scanOut.draw({
+    series: outputs.map(line), rangeBars: outBars, rightMargin,
+    message: outputs.length ? null
+      : `Outputs not measured: this fast sweep read only ${page.signals[searched].label}.`,
+  });
 
   // Rebuild the candidate list only when the scan changes, so a selection survives status updates.
   const list = $("candidates");

@@ -74,7 +74,9 @@ class Settings:
     NUM_COARSE_POINTS: int = 51      # uniform scans only
     NUM_FINE_POINTS: int = 41
     MANUAL_SCAN_POINTS: int = 101    # uniform scans only
-    SCAN_SETTLE_TIME: float = 0.01
+    SCAN_SETTLE_MS: float = 1.0      # wait after each move of control out before reading (ms)
+    FAST_SWEEP: bool = True          # sweeps read only the searched signal, with the ADC at its
+                                     # maximum rate: a few ms per point instead of ~0.2 s
     NUM_SAMPLES_PER_POINT: int = 5
     SMOOTHING_WINDOW: int = 3
 
@@ -125,7 +127,7 @@ MINIMUMS = {
     "ADAPTIVE_TARGET_CHANGE": 1e-4,
     "NUM_SAMPLES_PER_POINT": 1,
     "SMOOTHING_WINDOW": 1,
-    "SCAN_SETTLE_TIME": 0.0,
+    "SCAN_SETTLE_MS": 0.0,
     "PRIME_SETTLE_TIME": 0.0,
     "MONITOR_INTERVAL": 0.01,
     "LOG_INTERVAL": 0.01,

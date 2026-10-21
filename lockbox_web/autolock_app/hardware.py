@@ -9,24 +9,36 @@ DAC channel roles:
     A        "control out" - set in PHYSICAL volts via set_control_out()
     B, C, D  digital-style lines that short the caps / block the PID
              (HIGH) or restart it (LOW); fixed raw DAC volts.
+
+ADC modes:
+    normal  single-shot conversions at ADS_NORMAL_DATA_RATE, one per read;
+            used for the monitor loop and normal sweeps (all four channels).
+    fast    continuous conversions of ONE channel at ADS_FAST_DATA_RATE;
+            used by fast sweeps (see fast_adc() and read_signal_fast()).
 """
 
 import threading
 import time
+from contextlib import contextmanager
 
 import board
 import busio
 import adafruit_mcp4728
 import adafruit_ads1x15.ads1115 as ADS
+from adafruit_ads1x15.ads1x15 import Mode
 from adafruit_ads1x15.analog_in import AnalogIn
 
 from . import state
-from .channels import control_out_to_dac_volts, raw_to_physical
+from .channels import CHANNEL_CONVERTERS, control_out_to_dac_volts, raw_to_physical
 from .config import ADS_GAIN, DAC_HIGH_VOLTAGE, DAC_LOW_VOLTAGE, VDD_VOLTAGE, settings
+
+ADS_NORMAL_DATA_RATE = 128   # conversions/s: the driver's default, lower noise
+ADS_FAST_DATA_RATE = 860     # conversions/s: the ADS1115's maximum
 
 i2c_lock = threading.Lock()  # serializes raw I2C transactions across threads
 
 dac = None
+ads = None
 adc_channels = None
 
 
@@ -39,8 +51,10 @@ def init_hardware():
         ch.vref = adafruit_mcp4728.Vref.VDD
         ch.gain = 1
 
+    global ads
     ads = ADS.ADS1115(i2c)
     ads.gain = ADS_GAIN
+    ads.data_rate = ADS_NORMAL_DATA_RATE
     adc_channels = [AnalogIn(ads, i) for i in range(4)]  # channels 0-3
 
 
@@ -120,6 +134,59 @@ def read_raw_averaged(num_samples=1):
             for i, chan in enumerate(adc_channels):
                 sums[i] += chan.voltage
     return [s / num_samples for s in sums]
+
+
+def _set_adc_mode(mode, data_rate):
+    with i2c_lock:
+        ads.data_rate = data_rate
+        ads.mode = mode
+        # The driver remembers the last channel read and, in continuous mode,
+        # skips reconfiguring the chip for a repeat read of it - which would read
+        # the wrong register right after a mode change. Forget it, so the next
+        # read selects its channel properly.
+        ads._last_pin_read = None  # pylint: disable=protected-access
+
+
+@contextmanager
+def fast_adc(signal_name):
+    """
+    For the duration of a sweep, run the ADC in continuous mode on the one
+    channel carrying `signal_name`, at the maximum rate. Each read is then a
+    single short I2C transfer instead of a start-wait-read exchange. Always
+    restores the normal mode afterwards, even if the sweep is stopped.
+    Does nothing if signal_name is None.
+    """
+    if signal_name is None:
+        yield
+        return
+    _set_adc_mode(Mode.CONTINUOUS, ADS_FAST_DATA_RATE)
+    try:
+        yield
+    finally:
+        _set_adc_mode(Mode.SINGLE, ADS_NORMAL_DATA_RATE)
+
+
+def read_signal_fast(signal_name, num_samples=1):
+    """
+    Read one signal (physical volts) in fast mode, averaging num_samples
+    separate conversions.
+
+    In continuous mode the chip converts on its own schedule and the driver
+    returns the latest finished result. Waiting two conversion periods first
+    guarantees that result was taken entirely after control out moved and
+    settled; waiting one period between samples guarantees each is a new
+    conversion rather than the same one read twice.
+    """
+    period = 1.0 / ADS_FAST_DATA_RATE
+    channel = adc_channels[list(CHANNEL_CONVERTERS).index(signal_name)]
+    time.sleep(2 * period)
+    total = 0.0
+    for i in range(num_samples):
+        if i:
+            time.sleep(period)
+        with i2c_lock:
+            total += channel.voltage
+    return CHANNEL_CONVERTERS[signal_name](total / num_samples)
 
 
 def read_physical(num_samples=1):
