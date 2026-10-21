@@ -94,6 +94,7 @@ SETTINGS_GROUPS = [
         ("MONITOR_INTERVAL", "Monitor sample interval (s)"),
         ("LOG_INTERVAL", "Logging interval (s)"),
         ("LIVE_MONITOR_TIME_SPAN", "Live monitor time span (s)"),
+        ("SHOW_DC_ERROR", "Show DC error in plots"),
         ("LOCK_RETRY_DELAY", "Retry delay on failure (s)"),
         ("SAVE_SCAN_PLOTS", "Save autolock scan plots"),
         ("SCAN_PLOT_DIR", "Scan plot directory"),

@@ -20,7 +20,7 @@ const plots = {
   scanErr: new LinePlot($("scan-err-plot"), {xLabel: "Control out, physical (V)", yLabel: "Error (V)"}),
   scanOut: new LinePlot($("scan-out-plot"), {xLabel: "Control out, physical (V)", yLabel: "Outputs (V)"}),
   monitorOut: new LinePlot($("monitor-out-plot"), {xLabel: "Time (s)", yLabel: "Voltage (V)"}),
-  monitorErr: new LinePlot($("monitor-err-plot"), {xLabel: "Time (s)", yLabel: "Voltage (V)"}),
+  monitorErr: new LinePlot($("monitor-err-plot"), {xLabel: "Time (s)", yLabel: "Error (V)"}),
 };
 
 // ---------------------------------------------------------------- connection
@@ -227,6 +227,20 @@ function rangeBar(name, lo, hi) {
   return {lo, hi, color: signal.color, label: `${signal.label} ${signal.range_name}`};
 }
 
+// DC error is plotted on its own right-hand axis, so a ~10 mV error signal on
+// the left axis isn't flattened by a DC error of several volts.
+function dcErrorSeries(series) {
+  return {...series, alpha: 0.6, axis: "right", label: `${page.signals.dc_err.label} (right axis)`};
+}
+
+function dcErrorAxis() {
+  return {label: `${page.signals.dc_err.label} (V)`, color: page.signals.dc_err.color};
+}
+
+function dcErrorLockRangeBar(s) {
+  return {...rangeBar("dc_err", s.DC_ERR_SAFE_MIN, s.DC_ERR_SAFE_MAX), axis: "right"};
+}
+
 function drawScan() {
   if (!page || !status) return;
   const s = status.settings;
@@ -254,20 +268,25 @@ function drawScan() {
   // Error on the left axis, DC error on its own right axis: a ~10 mV error
   // signal would otherwise be flattened by a DC error of several volts.
   // Candidates (and the smoothed curve) go on the axis of the signal searched.
+  // "Show DC error in plots" off hides DC error's trace, axis and lock-range bar;
+  // in DC error mode the candidate shading and numbers stay.
+  const showDc = s.SHOW_DC_ERROR;
   const searchedAxis = zeroCrossing ? "left" : "right";
-  const dcErr = page.signals.dc_err;
+  const smoothed = {label: `${page.signals[searched].label} (smoothed)`, color: "#000", x: scan.voltages,
+                    y: scan.smoothed, width: 1.2, axis: searchedAxis};
   plots.scanErr.draw({
     series: [
       {...line("error"), alpha: 0.6},
-      {...line("dc_err"), alpha: 0.6, axis: "right", label: `${dcErr.label} (right axis)`},
-      {label: `${page.signals[searched].label} (smoothed)`, color: "#000", x: scan.voltages, y: scan.smoothed,
-       width: 1.2, axis: searchedAxis},
+      ...(showDc ? [dcErrorSeries(line("dc_err"))] : []),
+      ...(zeroCrossing || showDc ? [smoothed] : []),
     ],
-    rightAxis: {label: `${dcErr.label} (V)`, color: dcErr.color},
+    rightAxis: dcErrorAxis(),
     hLines: zeroCrossing ? [0] : [],
-    vLines: scan.candidates.map((c, i) => ({x: c.lock_voltage, y: markerY, label: String(i + 1), axis: searchedAxis})),
+    vLines: scan.candidates.map((c, i) => (zeroCrossing || showDc
+      ? {x: c.lock_voltage, y: markerY, label: String(i + 1), axis: searchedAxis}
+      : {x: c.lock_voltage, label: String(i + 1)})),   // no DC scale shown: number at the top
     vSpans: zeroCrossing ? [] : scan.candidates.map((c) => ({start: c.start, end: c.end})),
-    rangeBars: zeroCrossing ? [] : [{...rangeBar("dc_err", s.DC_ERR_SAFE_MIN, s.DC_ERR_SAFE_MAX), axis: "right"}],
+    rangeBars: !zeroCrossing && showDc ? [dcErrorLockRangeBar(s)] : [],
     rightMargin,
   });
   plots.scanOut.draw({series: page.output_signals.map(line), rangeBars: outBars, rightMargin});
@@ -317,10 +336,13 @@ function drawMonitor() {
       rangeBar("fast_output", s.FAST_OUTPUT_SAFE_MIN, s.FAST_OUTPUT_SAFE_MAX),
     ],
   });
+  // Error on the left axis, DC error (if shown) on its own right axis.
+  const showDc = s.SHOW_DC_ERROR;
   plots.monitorErr.draw({
-    series: page.error_signals.map(line), xRange,
-    rangeBars: s.AUTOLOCK_MODE === "dc_err_range"
-      ? [rangeBar("dc_err", s.DC_ERR_SAFE_MIN, s.DC_ERR_SAFE_MAX)] : [],
+    series: [line("error"), ...(showDc ? [dcErrorSeries(line("dc_err"))] : [])],
+    rightAxis: dcErrorAxis(),
+    xRange,
+    rangeBars: showDc && s.AUTOLOCK_MODE === "dc_err_range" ? [dcErrorLockRangeBar(s)] : [],
   });
 }
 

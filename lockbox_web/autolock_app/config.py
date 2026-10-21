@@ -88,6 +88,7 @@ class Settings:
     LOG_INTERVAL: float = 1.0              # slow: MQTT/Influx logging rate (s)
     LOCK_RETRY_DELAY: float = 1.0
     LIVE_MONITOR_TIME_SPAN: float = 60.0   # seconds of history shown on the live monitor
+    SHOW_DC_ERROR: bool = True             # plot DC error (scan and live monitor error plots)
     SAVE_SCAN_PLOTS: bool = True
     SCAN_PLOT_DIR: str = "scan_plots"
 
