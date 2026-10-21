@@ -115,6 +115,20 @@ function applyStatus(newStatus) {
   document.title = `Lockbox - ${status.name || status.hostname}`;
   if (document.activeElement !== $("name-input")) $("name-input").value = status.name;
 
+  // PID: on when B/C/D are LOW; off (caps shorted, PID blocked) when they're HIGH.
+  const pid = $("pid-status");
+  if (status.pid_running === true) {
+    pid.textContent = "PID: on";
+    pid.className = "pill good";
+  } else if (status.pid_running === false) {
+    pid.textContent = "PID: off (B/C/D high)";
+    pid.className = "pill warn";
+  } else {
+    pid.textContent = "PID: mixed (B/C/D disagree)";
+    pid.className = "pill bad";
+  }
+  pid.title = "DAC channels B, C, D: low = PID running, high = caps shorted / PID blocked";
+
   const autolock = $("autolock-status");
   autolock.textContent = status.engaged ? `Autolock: engaged (${status.mode_name})` : "Autolock: disengaged";
   autolock.className = "pill " + (status.engaged ? "good" : "");

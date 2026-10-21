@@ -138,6 +138,7 @@ def current_status():
         "busy": state.busy_reason(),
         "scanning": state.manual_scan_active.is_set(),
         "autolock_running": state.autolock_running.is_set(),
+        "pid_running": hardware.pid_running(),   # True / False / None (B, C, D disagree)
     }
 
 

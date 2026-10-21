@@ -88,6 +88,28 @@ def restart_pid():
     set_dac_voltage(dac.channel_d, DAC_LOW_VOLTAGE)
 
 
+def pid_running():
+    """
+    True if B, C, D are all LOW (PID running), False if all HIGH (caps
+    shorted, PID blocked), None if they disagree or the DAC isn't set up yet.
+
+    Uses the values the DAC driver keeps: it reads the chip's real outputs
+    when the service starts and updates them on every write, so this is
+    right even for values left over from before a restart, and needs no
+    I2C traffic.
+    """
+    if dac is None:
+        return None
+    threshold = (DAC_HIGH_VOLTAGE + DAC_LOW_VOLTAGE) / 2
+    high = [ch.value / 65535 * VDD_VOLTAGE > threshold
+            for ch in (dac.channel_b, dac.channel_c, dac.channel_d)]
+    if not any(high):
+        return True
+    if all(high):
+        return False
+    return None
+
+
 # --------------------------------------------------------------------------
 # ADC
 # --------------------------------------------------------------------------
