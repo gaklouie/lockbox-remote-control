@@ -22,7 +22,7 @@ from . import state
 from .config import settings
 from .hardware import restart_pid, set_control_out, short_caps_and_block_pid
 from .plotting import save_autolock_scan_plot
-from .scanning import sweep, uniform_sweep
+from .scanning import ScanStopped, sweep, uniform_sweep
 from .signal_processing import find_crossing_candidates, find_safe_range_segments, smooth_signal
 
 
@@ -154,12 +154,18 @@ def autolock_once(log_fn=state.log):
     counted as a failed attempt rather than killing the calling thread.
     """
     state.autolock_running.set()
+    state.stop_scan_requested.clear()
     try:
         if settings.AUTOLOCK_MODE == "dc_err_range":
             return _autolock_dc_err_range(log_fn)
         return _autolock_zero_crossing(log_fn)
+    except ScanStopped as exc:
+        # Control out stays where the sweep stopped; B/C/D stay HIGH (PID blocked).
+        log_fn(f"Autolock scan {exc}. B/C/D left high (PID off).")
+        return False
     except Exception as exc:
         log_fn(f"Autolock failed with an error: {exc!r}")
         return False
     finally:
+        state.stop_scan_requested.clear()
         state.autolock_running.clear()

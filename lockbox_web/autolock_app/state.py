@@ -18,6 +18,7 @@ stop_event = threading.Event()          # set on shutdown; stops the monitor loo
 autolock_engaged = threading.Event()    # background trigger-and-relock is armed
 autolock_running = threading.Event()    # an autolock scan is sweeping control out right now
 manual_scan_active = threading.Event()  # a manual scan is sweeping control out right now
+stop_scan_requested = threading.Event() # "Stop Scan" pressed: the running sweep stops at its next point
 event_queue = queue.Queue()
 
 

@@ -138,6 +138,9 @@ function applyStatus(newStatus) {
   const working = status.scanning ? "Manual scan running" : status.autolock_running ? "Autolock scan running" : null;
   busy.textContent = working || "";
   busy.className = "pill warn" + (working ? "" : " hidden");
+  // Stop buttons: next to Run Scan, and in the header so a scan can be stopped from any tab.
+  $("stop-scan").disabled = !working;
+  $("stop-scan-header").classList.toggle("hidden", !working);
 
   // Controls that would fight a running scan or an engaged autolock.
   const blocked = Boolean(status.busy);
@@ -397,6 +400,9 @@ $("lock-selected").addEventListener("click", () => {
   send({cmd: "lock", index: Number($("candidates").value)});
 });
 $("release").addEventListener("click", () => send({cmd: "release"}));
+for (const id of ["stop-scan", "stop-scan-header"]) {
+  $(id).addEventListener("click", () => send({cmd: "stop_scan"}));
+}
 $("set-output").addEventListener("click", () => send({cmd: "set_output", voltage: $("output-voltage").value}));
 
 // Engaging or running autolock applies the settings form first;

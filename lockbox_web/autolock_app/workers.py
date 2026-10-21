@@ -10,7 +10,7 @@ from . import state
 from .config import MODE_DISPLAY_NAMES, settings
 from .hardware import read_physical, short_caps_and_block_pid
 from .locking import autolock_once
-from .scanning import sweep
+from .scanning import ScanStopped, sweep
 from .signal_processing import (find_crossing_candidates, find_safe_range_segments,
                                 is_within, smooth_signal)
 from .telemetry import publish_values
@@ -70,6 +70,7 @@ def run_manual_scan(v_min, v_max, num_points, mode, crossing_sign, adaptive):
     sweep follows the signal that `mode` searches.
     """
     state.manual_scan_active.set()
+    state.stop_scan_requested.clear()
     try:
         state.log(f"Starting manual scan ({MODE_DISPLAY_NAMES[mode]}, sign={crossing_sign}, "
                   f"{'adaptive' if adaptive else f'{num_points} uniform'} points)...")
@@ -105,8 +106,13 @@ def run_manual_scan(v_min, v_max, num_points, mode, crossing_sign, adaptive):
             "signal_smoothed": signal_smoothed, "candidates": candidates,
         }))
         state.log(f"Manual scan complete - {len(voltages)} points, {len(candidates)} candidate(s) found.")
+    except ScanStopped as exc:
+        # Control out stays where the sweep stopped; B/C/D stay HIGH (PID blocked).
+        state.log(f"Manual scan {exc}. B/C/D left high (PID off).")
+        state.event_queue.put(("scan_done", None))
     except Exception as exc:
         state.log(f"Manual scan failed: {exc!r}")
         state.event_queue.put(("scan_done", None))
     finally:
+        state.stop_scan_requested.clear()
         state.manual_scan_active.clear()

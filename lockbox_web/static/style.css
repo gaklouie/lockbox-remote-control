@@ -89,6 +89,8 @@ button:hover:not(:disabled) { background: #dfd9d0; }
 button:disabled { opacity: 0.5; cursor: default; }
 button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
 button.primary:hover:not(:disabled) { background: #271a6b; }
+button.stop { background: var(--bad); border-color: var(--bad); color: #fff; }
+button.stop:hover:not(:disabled) { background: #9e0d25; }
 
 progress { width: 180px; height: 16px; }
 

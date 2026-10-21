@@ -355,6 +355,16 @@ def handle_command(message, who):
         state.autolock_running.set()  # mark busy now, so a quick second click can't start another
         threading.Thread(target=autolock_once, args=(hub.log,), daemon=True).start()
 
+    elif cmd == "stop_scan":
+        if not (state.manual_scan_active.is_set() or state.autolock_running.is_set()):
+            raise CommandError("No scan is running.")
+        stopping_autolock = state.autolock_running.is_set()
+        state.stop_scan_requested.set()
+        hub.log(f"[{who}] Stop requested.")
+        if stopping_autolock and state.autolock_engaged.is_set():
+            # Otherwise the monitor loop would start a new autolock scan a moment later.
+            _set_engaged(False)
+
     elif cmd == "set_name":
         settings.DEVICE_NAME = str(message.get("name", "")).strip()
         save_settings()
