@@ -22,6 +22,7 @@ import paho.mqtt.client as mqtt
 from dotenv import load_dotenv
 
 from .config import MQTT_TOPIC, settings
+from .hardware import lock_status
 
 mqtt_client = None
 
@@ -55,13 +56,15 @@ def close_mqtt():
 def publish_values(values, status, extra_fields=None):
     """
     Publish one JSON payload: timestamp, device name, status
-    ("monitoring"/"scanning"), and the readings. The device name falls back
-    to the hostname if none has been set, so every message says which Pi sent it.
+    ("monitoring"/"scanning"), lock_status (see hardware.lock_status), and the
+    readings. The device name falls back to the hostname if none has been
+    set, so every message says which Pi sent it.
     """
     payload = {
         "timestamp": time.time(),
         "device_name": settings.DEVICE_NAME or socket.gethostname(),
         "state": status,
+        "lock_status": lock_status(values),
     }
     payload.update(values)
     if extra_fields:

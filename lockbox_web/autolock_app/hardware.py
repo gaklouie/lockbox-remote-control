@@ -124,6 +124,24 @@ def pid_running():
     return None
 
 
+def lock_status(values):
+    """
+    True when the lockbox is locked and nothing is disturbing it: no manual
+    scan, autolock scan or follow-mode locking is running, the PID is on
+    (B/C/D low), and slow and fast output are both within their safe ranges
+    in `values` (physical volts). False otherwise - including for a reading
+    that lacks the outputs (e.g. a fast-sweep scan point).
+    """
+    if state.manual_scan_active.is_set() or state.autolock_running.is_set() or state.lock_acquiring.is_set():
+        return False
+    if pid_running() is not True:
+        return False
+    if "slow_output" not in values or "fast_output" not in values:
+        return False
+    return (settings.SLOW_OUTPUT_SAFE_MIN <= values["slow_output"] <= settings.SLOW_OUTPUT_SAFE_MAX
+            and settings.FAST_OUTPUT_SAFE_MIN <= values["fast_output"] <= settings.FAST_OUTPUT_SAFE_MAX)
+
+
 # --------------------------------------------------------------------------
 # ADC
 # --------------------------------------------------------------------------
