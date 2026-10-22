@@ -86,6 +86,8 @@ class Settings:
     MIN_CROSSING_SLOPE_FRACTION: float = 0.1  # ignore crossings shallower than this x the steepest one
     MIN_CROSSING_SYMMETRY: float = 0.5        # ignore lopsided crossings: smaller lobe / larger lobe
                                               # below this (e.g. between a PDH carrier and sideband)
+    MIN_LOBE_HEIGHT_FRACTION: float = 0.3     # ignore crossings whose (smaller) lobe is below this x
+                                              # the tallest symmetric crossing's (drops noise wiggles)
     RESET_VOLTAGE_ON_FAILURE: float = 2.0  # control out, PHYSICAL volts
     PRIME_SETTLE_TIME: float = 0.1
     MONITOR_INTERVAL: float = 0.2          # fast: live display sampling rate (s)
@@ -144,11 +146,13 @@ MINIMUMS = {
     "LIVE_MONITOR_TIME_SPAN": 1.0,
     "MIN_CROSSING_SLOPE_FRACTION": 0.0,
     "MIN_CROSSING_SYMMETRY": 0.0,
+    "MIN_LOBE_HEIGHT_FRACTION": 0.0,
 }
 
 MAXIMUMS = {
     "MIN_CROSSING_SLOPE_FRACTION": 1.0,
     "MIN_CROSSING_SYMMETRY": 1.0,
+    "MIN_LOBE_HEIGHT_FRACTION": 1.0,
 }
 
 

@@ -64,7 +64,8 @@ def _autolock_zero_crossing(log_fn):
     coarse_smoothed = smooth_signal(coarse_v, coarse_trace["error"], settings.SMOOTHING_WINDOW)
     coarse_crossings = find_crossing_candidates(coarse_v, coarse_smoothed, settings.CROSSING_SIGN,
                                                 settings.MIN_CROSSING_SLOPE_FRACTION,
-                                                settings.MIN_CROSSING_SYMMETRY)
+                                                settings.MIN_CROSSING_SYMMETRY,
+                                                settings.MIN_LOBE_HEIGHT_FRACTION)
     coarse_data = {"mode": "zero_crossing", "signal_name": "error", "voltages": coarse_v,
                    "raw": coarse_trace["error"], "smoothed": coarse_smoothed,
                    "crossings": coarse_crossings, "chosen": None}
@@ -76,10 +77,11 @@ def _autolock_zero_crossing(log_fn):
         set_control_out(settings.RESET_VOLTAGE_ON_FAILURE)
         return False
 
-    coarse_best_v, coarse_best_slope, coarse_best_symmetry = max(coarse_crossings, key=lambda c: abs(c[1]))
+    best = max(coarse_crossings, key=lambda c: abs(c.slope))
+    coarse_best_v, coarse_best_slope = best.voltage, best.slope
     coarse_data["chosen"] = (coarse_best_v, coarse_best_slope)
-    log_fn(f"Coarse pass found {len(coarse_crossings)} crossing(s); "
-           f"steepest near {coarse_best_v:.4f} V (symmetry {coarse_best_symmetry:.2f}). Refining...")
+    log_fn(f"Coarse pass found {len(coarse_crossings)} crossing(s); steepest near {coarse_best_v:.4f} V "
+           f"(symmetry {best.symmetry:.2f}, lobe {1000 * best.lobe:.1f} mV). Refining...")
 
     fine_v, fine_trace = _fine_pass(coarse_best_v, coarse_step, "error")
     fine_smoothed = smooth_signal(fine_v, fine_trace["error"], settings.SMOOTHING_WINDOW)
@@ -89,7 +91,8 @@ def _autolock_zero_crossing(log_fn):
                                               settings.MIN_CROSSING_SLOPE_FRACTION)
 
     if fine_crossings:
-        lock_v, lock_slope, _ = max(fine_crossings, key=lambda c: abs(c[1]))
+        fine_best = max(fine_crossings, key=lambda c: abs(c.slope))
+        lock_v, lock_slope = fine_best.voltage, fine_best.slope
     else:
         lock_v, lock_slope = coarse_best_v, coarse_best_slope
 

@@ -91,6 +91,7 @@ SETTINGS_GROUPS = [
         ("CROSSING_SIGN", "Crossing sign"),
         ("MIN_CROSSING_SLOPE_FRACTION", "Min crossing slope (x steepest, 0-1)"),
         ("MIN_CROSSING_SYMMETRY", "Min crossing symmetry (0-1, 1 = equal lobes)"),
+        ("MIN_LOBE_HEIGHT_FRACTION", "Min lobe height (x tallest symmetric, 0-1)"),
         ("RESET_VOLTAGE_ON_FAILURE", "Reset voltage on failure (physical V)"),
         ("PRIME_SETTLE_TIME", "Prime (short caps) settle time (s)"),
         ("MONITOR_INTERVAL", "Monitor sample interval (s)"),

@@ -89,11 +89,14 @@ def run_manual_scan(v_min, v_max, num_points, mode, crossing_sign, adaptive):
             signal_smoothed = smooth_signal(voltages, trace["error"], settings.SMOOTHING_WINDOW)
             crossings = find_crossing_candidates(voltages, signal_smoothed, crossing_sign,
                                                  settings.MIN_CROSSING_SLOPE_FRACTION,
-                                                 settings.MIN_CROSSING_SYMMETRY)
+                                                 settings.MIN_CROSSING_SYMMETRY,
+                                                 settings.MIN_LOBE_HEIGHT_FRACTION)
             candidates = [
-                {"lock_voltage": v, "label": f"V={v:.4f} V   slope={slope:.4f}   symmetry={symmetry:.2f}",
+                {"lock_voltage": c.voltage,
+                 "label": (f"V={c.voltage:.4f} V   slope={c.slope:.4f}   symmetry={c.symmetry:.2f}   "
+                           f"lobe={1000 * c.lobe:.1f} mV"),
                  "start": None, "end": None}
-                for v, slope, symmetry in crossings
+                for c in crossings
             ]
         else:
             signal_smoothed = smooth_signal(voltages, trace["dc_err"], settings.SMOOTHING_WINDOW)
