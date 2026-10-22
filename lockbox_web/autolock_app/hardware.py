@@ -136,15 +136,8 @@ def read_raw_averaged(num_samples=1):
     return [s / num_samples for s in sums]
 
 
-def _set_adc_mode(mode, data_rate):
-    with i2c_lock:
-        ads.data_rate = data_rate
-        ads.mode = mode
-        # The driver remembers the last channel read and, in continuous mode,
-        # skips reconfiguring the chip for a repeat read of it - which would read
-        # the wrong register right after a mode change. Forget it, so the next
-        # read selects its channel properly.
-        ads._last_pin_read = None  # pylint: disable=protected-access
+def _channel_for(signal_name):
+    return adc_channels[list(CHANNEL_CONVERTERS).index(signal_name)]
 
 
 @contextmanager
@@ -155,37 +148,53 @@ def fast_adc(signal_name):
     single short I2C transfer instead of a start-wait-read exchange. Always
     restores the normal mode afterwards, even if the sweep is stopped.
     Does nothing if signal_name is None.
+
+    The channel is selected with an ordinary single-shot read BEFORE switching
+    to continuous mode. The driver (adafruit-circuitpython-ads1x15 3.0.5)
+    cannot select a channel in continuous mode: it silently keeps whichever
+    channel the chip was last set to. (Relying on it read the DC error input -
+    whatever the monitor read last - instead of the error input.) Switching
+    mode keeps the selected channel, and read_signal_fast() never asks the
+    driver to select one.
     """
     if signal_name is None:
         yield
         return
-    _set_adc_mode(Mode.CONTINUOUS, ADS_FAST_DATA_RATE)
+    with i2c_lock:
+        ads.data_rate = ADS_FAST_DATA_RATE
+        _channel_for(signal_name).voltage   # single-shot read: points the chip at this channel
+        ads.mode = Mode.CONTINUOUS          # starts converting that channel continuously
     try:
         yield
     finally:
-        _set_adc_mode(Mode.SINGLE, ADS_NORMAL_DATA_RATE)
+        with i2c_lock:
+            ads.mode = Mode.SINGLE          # single-shot reads select their own channel again
+            ads.data_rate = ADS_NORMAL_DATA_RATE
 
 
 def read_signal_fast(signal_name, num_samples=1):
     """
     Read one signal (physical volts) in fast mode, averaging num_samples
-    separate conversions.
+    separate conversions. Must be called inside fast_adc(signal_name).
 
-    In continuous mode the chip converts on its own schedule and the driver
-    returns the latest finished result. Waiting two conversion periods first
+    In continuous mode the chip converts on its own schedule; this reads its
+    latest finished result directly (get_last_result), bypassing the
+    driver's channel handling. Waiting two conversion periods first
     guarantees that result was taken entirely after control out moved and
     settled; waiting one period between samples guarantees each is a new
     conversion rather than the same one read twice.
     """
     period = 1.0 / ADS_FAST_DATA_RATE
-    channel = adc_channels[list(CHANNEL_CONVERTERS).index(signal_name)]
+    channel = _channel_for(signal_name)
     time.sleep(2 * period)
     total = 0.0
     for i in range(num_samples):
         if i:
             time.sleep(period)
         with i2c_lock:
-            total += channel.voltage
+            raw = ads.get_last_result()      # 16-bit two's complement conversion result
+        signed = raw - 0x10000 if raw & 0x8000 else raw
+        total += channel.convert_to_voltage(signed)
     return CHANNEL_CONVERTERS[signal_name](total / num_samples)
 
 
