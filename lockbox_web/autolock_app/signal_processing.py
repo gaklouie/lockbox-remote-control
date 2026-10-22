@@ -49,13 +49,17 @@ def find_zero_crossings(voltages, signal):
     for i in range(len(signal) - 1):
         y0, y1 = signal[i], signal[i + 1]
         if y0 == 0.0:
-            continue
+            continue                       # handled as the y1 == 0 case of the previous step
         if y0 * y1 < 0.0:
             x0, x1 = voltages[i], voltages[i + 1]
             frac = -y0 / (y1 - y0)
             x_cross = x0 + frac * (x1 - x0)
             slope = (y1 - y0) / (x1 - x0)
             crossings.append((float(x_cross), float(slope)))
+        elif y1 == 0.0 and i + 2 < len(signal) and y0 * signal[i + 2] < 0.0:
+            # Lands exactly on a sample (the signal passes through zero at i+1).
+            slope = (signal[i + 2] - y0) / (voltages[i + 2] - voltages[i])
+            crossings.append((float(voltages[i + 1]), float(slope)))
     return crossings
 
 
