@@ -450,4 +450,48 @@ function saveName() { send({cmd: "set_name", name: $("name-input").value}); $("n
 $("save-name").addEventListener("click", saveName);
 $("name-input").addEventListener("keydown", (event) => { if (event.key === "Enter") saveName(); });
 
+// ------------------------------------------------------------------ resizing
+// Each .resize-handle resizes the element named by data-target: dragging down
+// makes it taller, or - with data-grow="up", for the log under its handle -
+// dragging up does. Sizes are remembered per browser; double-click resets.
+const MIN_RESIZE_HEIGHT = 80;
+
+function makeResizable(handle) {
+  const target = $(handle.dataset.target);
+  const growsUp = handle.dataset.grow === "up";
+  const key = `lockbox.height.${handle.dataset.target}`;
+  try {
+    const saved = Number(localStorage.getItem(key));
+    if (saved) target.style.height = `${saved}px`;
+  } catch (_) { /* storage unavailable: use the default size */ }
+
+  handle.addEventListener("pointerdown", (down) => {
+    down.preventDefault();
+    handle.setPointerCapture(down.pointerId);
+    handle.classList.add("dragging");
+    const startY = down.clientY;
+    const startHeight = target.getBoundingClientRect().height;
+    const move = (event) => {
+      const dy = event.clientY - startY;
+      const height = startHeight + (growsUp ? -dy : dy);
+      const limit = window.innerHeight * 0.85;
+      target.style.height = `${Math.round(Math.max(MIN_RESIZE_HEIGHT, Math.min(limit, height)))}px`;
+    };
+    const up = () => {
+      handle.classList.remove("dragging");
+      handle.removeEventListener("pointermove", move);
+      handle.removeEventListener("pointerup", up);
+      try { localStorage.setItem(key, parseInt(target.style.height, 10)); } catch (_) { /* not remembered */ }
+    };
+    handle.addEventListener("pointermove", move);
+    handle.addEventListener("pointerup", up);
+  });
+
+  handle.addEventListener("dblclick", () => {
+    target.style.height = "";
+    try { localStorage.removeItem(key); } catch (_) { /* nothing saved */ }
+  });
+}
+document.querySelectorAll(".resize-handle").forEach(makeResizable);
+
 connect();

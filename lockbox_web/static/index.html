@@ -58,8 +58,10 @@
         <input id="output-voltage" type="number" step="any" class="narrow">
         <span class="muted">V physical (control out only)</span>
       </div>
-      <canvas id="scan-err-plot" class="plot"></canvas>
-      <canvas id="scan-out-plot" class="plot"></canvas>
+      <div id="box-scan-err" class="plot-box"><canvas id="scan-err-plot" class="plot"></canvas></div>
+      <div class="resize-handle" data-target="box-scan-err" title="Drag to resize; double-click to reset"></div>
+      <div id="box-scan-out" class="plot-box"><canvas id="scan-out-plot" class="plot"></canvas></div>
+      <div class="resize-handle" data-target="box-scan-out" title="Drag to resize; double-click to reset"></div>
       <div class="controls">
         <label for="candidates" class="muted">Lock candidates:</label>
         <select id="candidates" size="4"></select>
@@ -80,14 +82,21 @@
 
     <section id="tab-monitor" class="tab">
       <div class="two-plots">
-        <fieldset><legend>Outputs</legend><canvas id="monitor-out-plot" class="plot tall"></canvas></fieldset>
-        <fieldset><legend>Errors</legend><canvas id="monitor-err-plot" class="plot tall"></canvas></fieldset>
+        <fieldset><legend>Outputs</legend>
+          <div id="box-monitor-out" class="plot-box tall"><canvas id="monitor-out-plot" class="plot"></canvas></div>
+          <div class="resize-handle" data-target="box-monitor-out" title="Drag to resize; double-click to reset"></div>
+        </fieldset>
+        <fieldset><legend>Errors</legend>
+          <div id="box-monitor-err" class="plot-box tall"><canvas id="monitor-err-plot" class="plot"></canvas></div>
+          <div class="resize-handle" data-target="box-monitor-err" title="Drag to resize; double-click to reset"></div>
+        </fieldset>
       </div>
       <div id="latest-reading" class="muted mono"></div>
     </section>
   </main>
 
   <footer>
+    <div class="resize-handle" data-target="log" data-grow="up" title="Drag to resize; double-click to reset"></div>
     <div id="error-banner" class="hidden"></div>
     <pre id="log"></pre>
   </footer>
