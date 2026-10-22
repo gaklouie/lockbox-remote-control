@@ -161,6 +161,9 @@ function applyStatus(newStatus) {
     $("scan-points").value = status.settings.MANUAL_SCAN_POINTS;
     $("scan-adaptive").checked = status.settings.ADAPTIVE_SCAN;
     $("scan-points").disabled = $("scan-adaptive").checked;
+    // Last-used lock mode and crossing sign; until a scan has been run, the Settings tab's.
+    setRadio("scan-mode", status.settings.MANUAL_SCAN_MODE || status.settings.AUTOLOCK_MODE);
+    setRadio("scan-sign", status.settings.MANUAL_SCAN_SIGN || status.settings.CROSSING_SIGN);
   }
   if (document.activeElement !== $("output-voltage")) {
     $("output-voltage").value = status.settings.CONSTANT_OUTPUT_VOLTAGE;
@@ -371,6 +374,11 @@ function drawMonitor() {
 }
 
 // ------------------------------------------------------------------ controls
+function setRadio(name, value) {
+  const radio = document.querySelector(`input[name="${name}"][value="${value}"]`);
+  if (radio) radio.checked = true;
+}
+
 function radioValue(name) {
   return document.querySelector(`input[name="${name}"]:checked`).value;
 }
@@ -389,6 +397,9 @@ document.querySelectorAll("#tabs button").forEach((button) => {
 for (const id of ["scan-min", "scan-max", "scan-points", "scan-adaptive"]) {
   $(id).addEventListener("input", () => { scanInputsDirty = true; });
 }
+document.querySelectorAll('input[name="scan-mode"], input[name="scan-sign"]').forEach((radio) => {
+  radio.addEventListener("change", () => { scanInputsDirty = true; });
+});
 $("scan-adaptive").addEventListener("change", () => {
   $("scan-points").disabled = $("scan-adaptive").checked;
 });

@@ -133,7 +133,8 @@ def current_status():
     return {
         "hostname": socket.gethostname(),
         "name": settings.DEVICE_NAME,
-        "settings": {name: getattr(settings, name) for name in EDITABLE_FIELDS | {"CONSTANT_OUTPUT_VOLTAGE"}},
+        "settings": {name: getattr(settings, name) for name in
+                     EDITABLE_FIELDS | {"CONSTANT_OUTPUT_VOLTAGE", "MANUAL_SCAN_MODE", "MANUAL_SCAN_SIGN"}},
         "engaged": state.autolock_engaged.is_set(),
         "mode_name": MODE_DISPLAY_NAMES[settings.AUTOLOCK_MODE],
         "busy": state.busy_reason(),
@@ -306,6 +307,7 @@ def handle_command(message, who):
         adaptive = bool(message.get("adaptive", settings.ADAPTIVE_SCAN))
         settings.SCAN_MIN_VOLTAGE, settings.SCAN_MAX_VOLTAGE = v_min, v_max
         settings.MANUAL_SCAN_POINTS, settings.ADAPTIVE_SCAN = points, adaptive
+        settings.MANUAL_SCAN_MODE, settings.MANUAL_SCAN_SIGN = mode, sign
         save_settings()
         state.manual_scan_active.set()  # mark busy now, so a second browser can't start another
         threading.Thread(target=run_manual_scan, args=(v_min, v_max, points, mode, sign, adaptive),

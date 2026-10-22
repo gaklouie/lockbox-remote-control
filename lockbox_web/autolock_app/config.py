@@ -97,6 +97,11 @@ class Settings:
     # --- Scan tab "constant output" entry (control out, PHYSICAL volts) ---
     CONSTANT_OUTPUT_VOLTAGE: float = 2.0
 
+    # --- Scan tab's last-used choices, so the page reopens with them. ---
+    # "" = not chosen yet: the page shows AUTOLOCK_MODE / CROSSING_SIGN instead.
+    MANUAL_SCAN_MODE: str = ""
+    MANUAL_SCAN_SIGN: str = ""
+
     # --- Saved state, not a preference: autolock comes back engaged after a restart ---
     AUTOLOCK_ENGAGED: bool = False
 
@@ -108,6 +113,8 @@ FIELD_TYPES = {f.name: f.type for f in fields(Settings)}
 CHOICES = {
     "AUTOLOCK_MODE": ("zero_crossing", "dc_err_range"),
     "CROSSING_SIGN": ("positive", "negative", "both"),
+    "MANUAL_SCAN_MODE": ("", "zero_crossing", "dc_err_range"),
+    "MANUAL_SCAN_SIGN": ("", "positive", "negative", "both"),
 }
 
 # Human-readable autolock mode names for the page, plots and log.
