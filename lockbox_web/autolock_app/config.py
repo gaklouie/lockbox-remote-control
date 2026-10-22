@@ -108,6 +108,7 @@ class Settings:
     MONITOR_INTERVAL: float = 0.2          # fast: live display sampling rate (s)
     LOG_INTERVAL: float = 1.0              # slow: MQTT/Influx logging rate (s)
     LOCK_RETRY_DELAY: float = 1.0
+    AUTOLOCK_RETRIES: int = 3              # retries after a failed autolock before it disengages
     LIVE_MONITOR_TIME_SPAN: float = 60.0   # seconds of history shown on the live monitor
     SHOW_DC_ERROR: bool = True             # plot DC error (scan and live monitor error plots)
     SAVE_SCAN_PLOTS: bool = True
@@ -159,6 +160,7 @@ MINIMUMS = {
     "MONITOR_INTERVAL": 0.01,
     "LOG_INTERVAL": 0.01,
     "LOCK_RETRY_DELAY": 0.0,
+    "AUTOLOCK_RETRIES": 0,
     "LIVE_MONITOR_TIME_SPAN": 1.0,
     "MIN_CROSSING_SLOPE_FRACTION": 0.0,
     "MIN_CROSSING_SYMMETRY": 0.0,

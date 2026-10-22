@@ -8,7 +8,7 @@ import time
 
 from . import state
 from .channels import DISPLAY_NAMES
-from .config import MODE_DISPLAY_NAMES, settings
+from .config import MODE_DISPLAY_NAMES, save_settings, settings
 from .hardware import read_physical, short_caps_and_block_pid
 from .locking import autolock_once
 from .scanning import ScanStopped, sweep
@@ -21,8 +21,9 @@ def monitor_loop():
     """
     Read all channels every MONITOR_INTERVAL for the live display, publish
     to MQTT every LOG_INTERVAL, and - if autolock is engaged - run an
-    autolock whenever the trigger condition for the current mode fires.
-    Pauses while a manual scan or an on-demand autolock owns control out.
+    autolock whenever the trigger condition for the current mode fires
+    (see _autolock_with_retries). Pauses while a manual scan or an
+    on-demand autolock owns control out.
     """
     last_log_time = 0.0
     while not state.stop_event.is_set():
@@ -57,11 +58,54 @@ def monitor_loop():
 
             if triggered:
                 state.log(f"Trigger: {trigger_msg}")
-                if not autolock_once():
-                    time.sleep(settings.LOCK_RETRY_DELAY)
+                _autolock_with_retries()
                 continue
 
         time.sleep(settings.MONITOR_INTERVAL)
+
+
+def _wait_while_engaged(seconds):
+    """Sleep up to `seconds`; return False early if autolock is disengaged or the program stops."""
+    deadline = time.time() + seconds
+    while time.time() < deadline:
+        if state.stop_event.is_set() or not state.autolock_engaged.is_set():
+            return False
+        time.sleep(0.1)
+    return not state.stop_event.is_set() and state.autolock_engaged.is_set()
+
+
+def _autolock_with_retries():
+    """
+    Run autolock; if it fails, wait LOCK_RETRY_DELAY and try again, up to
+    AUTOLOCK_RETRIES more times - without waiting for the trigger to fire
+    again. (A failed attempt leaves B/C/D high, which holds the PID off and
+    typically brings the outputs back inside their safe ranges, so the
+    trigger alone would never ask for another attempt.)
+
+    If every attempt fails, autolock is disengaged, so it doesn't sit there
+    silently with the PID off. B/C/D stay high and control out stays at the
+    reset voltage: releasing an unlocked PID could rail the outputs.
+    Disengaging or Stop interrupts the retries.
+    """
+    attempts = 1 + settings.AUTOLOCK_RETRIES
+    for attempt in range(1, attempts + 1):
+        if attempt > 1:
+            state.log(f"Autolock retry {attempt - 1} of {attempts - 1} in {settings.LOCK_RETRY_DELAY:g} s...")
+            if not _wait_while_engaged(settings.LOCK_RETRY_DELAY):
+                return
+        if not state.autolock_engaged.is_set() or state.stop_event.is_set():
+            return
+        if autolock_once():
+            return
+    if state.autolock_engaged.is_set():
+        state.autolock_engaged.clear()
+        settings.AUTOLOCK_ENGAGED = False
+        try:
+            save_settings()
+        except OSError as exc:
+            state.log(f"WARNING: could not save settings: {exc}")
+        state.log(f"Autolock failed {attempts} time(s) in a row - autolock disengaged. "
+                  f"B/C/D left high (PID off); control out at {settings.RESET_VOLTAGE_ON_FAILURE:g} V.")
 
 
 def run_manual_scan(v_min, v_max, num_points, mode, crossing_sign, adaptive):

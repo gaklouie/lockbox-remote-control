@@ -112,6 +112,7 @@ SETTINGS_GROUPS = [
         ("LIVE_MONITOR_TIME_SPAN", "Live monitor time span (s)"),
         ("SHOW_DC_ERROR", "Show DC error in plots"),
         ("LOCK_RETRY_DELAY", "Retry delay on failure (s)"),
+        ("AUTOLOCK_RETRIES", "Autolock retries after a failure"),
         ("SAVE_SCAN_PLOTS", "Save autolock scan plots"),
         ("SCAN_PLOT_DIR", "Scan plot directory"),
     ]),
