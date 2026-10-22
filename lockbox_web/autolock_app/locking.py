@@ -21,6 +21,7 @@ import time
 from . import state
 from .channels import CHANNEL_CONVERTERS
 from .config import settings
+from .following import FollowFailed, follow_crossing
 from .hardware import restart_pid, set_control_out, short_caps_and_block_pid
 from .plotting import save_autolock_scan_plot
 from .scanning import ScanStopped, sweep, uniform_sweep
@@ -81,7 +82,23 @@ def _autolock_zero_crossing(log_fn):
     coarse_best_v, coarse_best_slope = best.voltage, best.slope
     coarse_data["chosen"] = (coarse_best_v, coarse_best_slope)
     log_fn(f"Coarse pass found {len(coarse_crossings)} crossing(s); steepest near {coarse_best_v:.4f} V "
-           f"(symmetry {best.symmetry:.2f}, lobe {1000 * best.lobe:.1f} mV). Refining...")
+           f"(symmetry {best.symmetry:.2f}, lobe {1000 * best.lobe:.1f} mV). "
+           f"{'Following it onto lock' if settings.LOCK_ACQUIRE == 'follow' else 'Refining'}...")
+
+    if settings.LOCK_ACQUIRE == "follow":
+        try:
+            lock_v = follow_crossing(best, log_fn)
+        except FollowFailed as exc:
+            log_fn(f"Following failed: {exc} - autolock failed.")
+            save_autolock_scan_plot(session_id, coarse_data, None, note=f"Following failed:\n{exc}")
+            set_control_out(settings.RESET_VOLTAGE_ON_FAILURE)
+            return False
+        save_autolock_scan_plot(session_id, coarse_data, None,
+                                note=f"Locked by following the crossing\n(no fine scan): {lock_v:.4f} V")
+        set_control_out(lock_v)
+        log_fn(f"Locked: control out = {lock_v:.4f} V physical (followed onto the crossing)")
+        restart_pid()
+        return True
 
     fine_v, fine_trace = _fine_pass(coarse_best_v, coarse_step, "error")
     fine_smoothed = smooth_signal(fine_v, fine_trace["error"], settings.SMOOTHING_WINDOW)

@@ -135,7 +135,9 @@ function applyStatus(newStatus) {
   $("toggle-engage").textContent = status.engaged ? "Disengage Autolock" : "Engage Autolock";
 
   const busy = $("busy-status");
-  const working = status.scanning ? "Manual scan running" : status.autolock_running ? "Autolock scan running" : null;
+  const working = status.scanning ? "Manual scan running"
+    : status.autolock_running ? "Autolock scan running"
+    : status.lock_acquiring ? "Locking (following the crossing)" : null;
   busy.textContent = working || "";
   busy.className = "pill warn" + (working ? "" : " hidden");
   // Stop buttons: next to Run Scan, and in the header so a scan can be stopped from any tab.

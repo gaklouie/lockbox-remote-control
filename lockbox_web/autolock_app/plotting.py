@@ -151,7 +151,7 @@ def _plot_autolock_pass(ax, data, title):
     ax.grid(True, alpha=0.3)
 
 
-def save_autolock_scan_plot(session_id, coarse_data, fine_data):
+def save_autolock_scan_plot(session_id, coarse_data, fine_data, note=None):
     """
     Save coarse + fine passes side by side as <SCAN_PLOT_DIR>/<session_id>_scan.png.
 
@@ -168,7 +168,7 @@ def save_autolock_scan_plot(session_id, coarse_data, fine_data):
     if fine_data is not None:
         _plot_autolock_pass(axes[1], fine_data, "Fine scan")
     else:
-        axes[1].text(0.5, 0.5, "No lock candidate found -\nfine pass skipped",
+        axes[1].text(0.5, 0.5, note or "No lock candidate found -\nfine pass skipped",
                      ha="center", va="center", transform=axes[1].transAxes)
         axes[1].set_title("Fine scan")
     fig.suptitle(f"Autolock scan ({MODE_DISPLAY_NAMES[coarse_data['mode']]}) - {session_id}")

@@ -26,7 +26,8 @@ def monitor_loop():
     """
     last_log_time = 0.0
     while not state.stop_event.is_set():
-        if state.manual_scan_active.is_set() or state.autolock_running.is_set():
+        if (state.manual_scan_active.is_set() or state.autolock_running.is_set()
+                or state.lock_acquiring.is_set()):
             time.sleep(0.2)
             continue
 
@@ -95,7 +96,8 @@ def run_manual_scan(v_min, v_max, num_points, mode, crossing_sign, adaptive):
                 {"lock_voltage": c.voltage,
                  "label": (f"V={c.voltage:.4f} V   slope={c.slope:.4f}   symmetry={c.symmetry:.2f}   "
                            f"lobe={1000 * c.lobe:.1f} mV"),
-                 "start": None, "end": None}
+                 "start": None, "end": None,
+                 "crossing": c._asdict()}       # everything "Lock to Selected" needs to follow it
                 for c in crossings
             ]
         else:

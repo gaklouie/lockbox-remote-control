@@ -18,6 +18,7 @@ stop_event = threading.Event()          # set on shutdown; stops the monitor loo
 autolock_engaged = threading.Event()    # background trigger-and-relock is armed
 autolock_running = threading.Event()    # an autolock scan is sweeping control out right now
 manual_scan_active = threading.Event()  # a manual scan is sweeping control out right now
+lock_acquiring = threading.Event()      # "Lock to Selected" is following a crossing onto lock
 stop_scan_requested = threading.Event() # "Stop Scan" pressed: the running sweep stops at its next point
 event_queue = queue.Queue()
 
@@ -37,6 +38,8 @@ def busy_reason():
         return "A manual scan is running."
     if autolock_running.is_set():
         return "An autolock scan is running."
+    if lock_acquiring.is_set():
+        return "Locking to the selected crossing."
     if autolock_engaged.is_set():
         return "Autolock is engaged - disengage it first."
     return None

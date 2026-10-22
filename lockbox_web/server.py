@@ -49,7 +49,10 @@ from autolock_app import config, hardware, state, telemetry
 from autolock_app.channels import DISPLAY_NAMES, ERROR_SIGNAL_NAMES, OUTPUT_SIGNAL_NAMES, RANGE_NAMES
 from autolock_app.config import (CHOICES, FIELD_TYPES, MODE_DISPLAY_NAMES, SETTINGS_PATH,
                                  coerce_value, save_settings, settings)
+from autolock_app.following import FollowFailed, follow_crossing
 from autolock_app.locking import autolock_once
+from autolock_app.scanning import ScanStopped
+from autolock_app.signal_processing import Crossing
 from autolock_app.plotting import SIGNAL_COLORS
 from autolock_app.workers import monitor_loop, run_manual_scan
 
@@ -92,6 +95,11 @@ SETTINGS_GROUPS = [
         ("MIN_CROSSING_SLOPE_FRACTION", "Min crossing slope (x steepest, 0-1)"),
         ("MIN_CROSSING_SYMMETRY", "Min crossing symmetry (0-1, 1 = equal lobes)"),
         ("MIN_LOBE_HEIGHT_FRACTION", "Min lobe height (x tallest symmetric, 0-1)"),
+        ("LOCK_ACQUIRE", "Home in on the crossing by"),
+        ("SERVO_P_GAIN", "Follow: proportional gain (0-1.5)"),
+        ("SERVO_I_GAIN", "Follow: integral gain (0-1)"),
+        ("SERVO_TOLERANCE", "Follow: converged at |error| <= (x lobe height)"),
+        ("SERVO_MAX_ITERATIONS", "Follow: max steps"),
         ("RESET_VOLTAGE_ON_FAILURE", "Reset voltage on failure (physical V)"),
         ("PRIME_SETTLE_TIME", "Prime (short caps) settle time (s)"),
         ("MONITOR_INTERVAL", "Monitor sample interval (s)"),
@@ -107,6 +115,7 @@ EDITABLE_FIELDS = {name for _title, fields in SETTINGS_GROUPS for name, _label i
 CHOICE_LABELS = {
     "AUTOLOCK_MODE": MODE_DISPLAY_NAMES,
     "CROSSING_SIGN": {"positive": "Positive", "negative": "Negative", "both": "Both"},
+    "LOCK_ACQUIRE": {"fine_scan": "Fine scan", "follow": "Following the crossing (servo)"},
 }
 
 
@@ -142,6 +151,7 @@ def current_status():
         "busy": state.busy_reason(),
         "scanning": state.manual_scan_active.is_set(),
         "autolock_running": state.autolock_running.is_set(),
+        "lock_acquiring": state.lock_acquiring.is_set(),
         "pid_running": hardware.pid_running(),   # True / False / None (B, C, D disagree)
     }
 
@@ -252,7 +262,8 @@ def pump_worker_queue():
                 "trace": {name: [float(v) for v in values] for name, values in data["trace"].items()},
                 "smoothed": [float(v) for v in data["signal_smoothed"]],
                 "candidates": [{"lock_voltage": float(c["lock_voltage"]), "label": c["label"],
-                                "start": c["start"], "end": c["end"]} for c in data["candidates"]],
+                                "start": c["start"], "end": c["end"], "crossing": c.get("crossing")}
+                               for c in data["candidates"]],
             }})
 
 
@@ -292,6 +303,26 @@ def _apply_settings(raw_values):
     save_settings()
 
 
+def _follow_and_lock(crossing, who):
+    """Thread for "Lock to Selected" in follow mode: follow the crossing, then hand over to the PID."""
+    try:
+        hub.log(f"[{who}] Locking: following the crossing seen at {crossing.voltage:.4f} V...")
+        hardware.short_caps_and_block_pid()          # control out alone moves the actuator while following
+        lock_v = follow_crossing(crossing, hub.log)
+        hardware.set_control_out(lock_v)
+        hardware.restart_pid()
+        hub.log(f"[{who}] Locked to control out = {lock_v:.4f} V physical (followed onto the crossing)")
+    except FollowFailed as exc:
+        hub.log(f"Lock failed: {exc}. B/C/D left high (PID off).")
+    except ScanStopped as exc:
+        hub.log(f"Locking {exc}. B/C/D left high (PID off).")
+    except Exception as exc:
+        hub.log(f"Lock failed with an error: {exc!r}. B/C/D left high (PID off).")
+    finally:
+        state.stop_scan_requested.clear()
+        state.lock_acquiring.clear()
+
+
 def handle_command(message, who):
     """Carry out one command. Runs in a worker thread, so hardware calls may block."""
     cmd = message.get("cmd")
@@ -322,6 +353,13 @@ def handle_command(message, who):
             candidate = scan["candidates"][int(message["index"])]
         except (TypeError, KeyError, IndexError, ValueError) as exc:
             raise CommandError("Select a lock candidate from the latest scan first.") from exc
+        if settings.LOCK_ACQUIRE == "follow" and candidate.get("crossing"):
+            # Follow the crossing as it is now (it may have moved since the scan).
+            state.stop_scan_requested.clear()
+            state.lock_acquiring.set()   # mark busy now, so a second click can't start another
+            threading.Thread(target=_follow_and_lock, args=(Crossing(**candidate["crossing"]), who),
+                             daemon=True).start()
+            return
         hardware.set_control_out(candidate["lock_voltage"])
         hardware.restart_pid()
         hub.log(f"[{who}] Locked to control out = {candidate['lock_voltage']:.4f} V physical")
@@ -361,7 +399,8 @@ def handle_command(message, who):
         threading.Thread(target=autolock_once, args=(hub.log,), daemon=True).start()
 
     elif cmd == "stop_scan":
-        if not (state.manual_scan_active.is_set() or state.autolock_running.is_set()):
+        if not (state.manual_scan_active.is_set() or state.autolock_running.is_set()
+                or state.lock_acquiring.is_set()):
             raise CommandError("No scan is running.")
         stopping_autolock = state.autolock_running.is_set()
         state.stop_scan_requested.set()

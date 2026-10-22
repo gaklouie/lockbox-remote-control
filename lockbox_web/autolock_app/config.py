@@ -88,6 +88,16 @@ class Settings:
                                               # below this (e.g. between a PDH carrier and sideband)
     MIN_LOBE_HEIGHT_FRACTION: float = 0.3     # ignore crossings whose (smaller) lobe is below this x
                                               # the tallest symmetric crossing's (drops noise wiggles)
+
+    # How autolock (zero-crossing mode) and "Lock to Selected" home in on the
+    # chosen crossing: "fine_scan" = a second, finer sweep around it;
+    # "follow" = servo control out onto the crossing in software, check it is
+    # still the right crossing, and re-find it nearby if it has moved (following.py).
+    LOCK_ACQUIRE: str = "fine_scan"
+    SERVO_P_GAIN: float = 0.5        # fraction of the estimated distance to zero moved per step
+    SERVO_I_GAIN: float = 0.1        # integral gain (same units), removes lag from steady drift
+    SERVO_TOLERANCE: float = 0.05    # converged when |error| <= this x the crossing's lobe height
+    SERVO_MAX_ITERATIONS: int = 200
     RESET_VOLTAGE_ON_FAILURE: float = 2.0  # control out, PHYSICAL volts
     PRIME_SETTLE_TIME: float = 0.1
     MONITOR_INTERVAL: float = 0.2          # fast: live display sampling rate (s)
@@ -118,6 +128,7 @@ CHOICES = {
     "AUTOLOCK_MODE": ("zero_crossing", "dc_err_range"),
     "CROSSING_SIGN": ("positive", "negative", "both"),
     "MANUAL_SCAN_MODE": ("", "zero_crossing", "dc_err_range"),
+    "LOCK_ACQUIRE": ("fine_scan", "follow"),
     "MANUAL_SCAN_SIGN": ("", "positive", "negative", "both"),
 }
 
@@ -147,12 +158,19 @@ MINIMUMS = {
     "MIN_CROSSING_SLOPE_FRACTION": 0.0,
     "MIN_CROSSING_SYMMETRY": 0.0,
     "MIN_LOBE_HEIGHT_FRACTION": 0.0,
+    "SERVO_P_GAIN": 0.01,
+    "SERVO_I_GAIN": 0.0,
+    "SERVO_TOLERANCE": 0.001,
+    "SERVO_MAX_ITERATIONS": 10,
 }
 
 MAXIMUMS = {
     "MIN_CROSSING_SLOPE_FRACTION": 1.0,
     "MIN_CROSSING_SYMMETRY": 1.0,
     "MIN_LOBE_HEIGHT_FRACTION": 1.0,
+    "SERVO_P_GAIN": 1.5,
+    "SERVO_I_GAIN": 1.0,
+    "SERVO_TOLERANCE": 1.0,
 }
 
 
