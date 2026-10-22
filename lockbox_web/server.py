@@ -65,6 +65,9 @@ MAX_LOG_LINES = 300
 SETTINGS_GROUPS = [
     ("Calibration", [
         ("ERROR_READ_OFFSET", "Error read offset (V, added to error)"),
+        ("SLOW_OUTPUT_READ_OFFSET", "Slow output read offset (V, added to slow output)"),
+        ("FAST_OUTPUT_READ_OFFSET", "Fast output read offset (V, added to fast output)"),
+        ("CONTROL_OUT_OFFSET", "Control out offset (V, actual minus requested)"),
     ]),
     ("Safe / Lock Range Parameters", [
         ("SLOW_OUTPUT_SAFE_MIN", "Slow output safe min (V)"),
@@ -89,7 +92,7 @@ SETTINGS_GROUPS = [
         ("NUM_SAMPLES_PER_POINT", "Samples averaged/point"),
         ("SMOOTHING_WINDOW", "Smoothing window (1 = off)"),
     ]),
-    ("General Program Parameters", [
+    ("Lock Settings", [
         ("AUTOLOCK_MODE", "Autolock mode"),
         ("CROSSING_SIGN", "Crossing sign"),
         ("MIN_CROSSING_SLOPE_FRACTION", "Min crossing slope (x steepest, 0-1)"),
@@ -100,6 +103,8 @@ SETTINGS_GROUPS = [
         ("SERVO_I_GAIN", "Follow: integral gain (0-1)"),
         ("SERVO_TOLERANCE", "Follow: converged at |error| <= (x lobe height)"),
         ("SERVO_MAX_ITERATIONS", "Follow: max steps"),
+    ]),
+    ("General Program Parameters", [
         ("RESET_VOLTAGE_ON_FAILURE", "Reset voltage on failure (physical V)"),
         ("PRIME_SETTLE_TIME", "Prime (short caps) settle time (s)"),
         ("MONITOR_INTERVAL", "Monitor sample interval (s)"),

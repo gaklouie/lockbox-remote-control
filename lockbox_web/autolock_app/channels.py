@@ -14,17 +14,19 @@ from .config import DAC_SHIFT_GAIN, DAC_SHIFT_OFFSET, settings
 # --------------------------------------------------------------------------
 # ADC: raw ADC volts -> true, physical volts
 # --------------------------------------------------------------------------
+# The *_READ_OFFSET settings correct calibration offsets in these conversions
+# (physical volts, added to the reading). For the error signal this matters
+# most: a true zero must read as zero, or small zero crossings are missed or
+# misplaced.
 def to_slow_output(adc_voltage):
-    return 56 * (-0.227273 + 0.118867 * adc_voltage)
+    return 56 * (-0.227273 + 0.118867 * adc_voltage) + settings.SLOW_OUTPUT_READ_OFFSET
 
 
 def to_fast_output(adc_voltage):
-    return 56 * (-0.227273 + 0.118867 * adc_voltage)
+    return 56 * (-0.227273 + 0.118867 * adc_voltage) + settings.FAST_OUTPUT_READ_OFFSET
 
 
 def to_error(adc_voltage):
-    # ERROR_READ_OFFSET corrects a calibration offset in this conversion: a true
-    # zero must read as zero, or small zero crossings are missed or misplaced.
     return 18 * (-0.185185 + 0.0925927 * adc_voltage) + settings.ERROR_READ_OFFSET
 
 
@@ -68,9 +70,12 @@ def raw_to_physical(raw_voltages):
 # --------------------------------------------------------------------------
 # DAC channel A ("control out"): physical volts <-> raw DAC volts
 # --------------------------------------------------------------------------
+# CONTROL_OUT_OFFSET is how far the real output sits above the formula
+# (actual - requested, measured with the offset at 0). It is subtracted when
+# setting control out, so the actual output lands on the requested voltage.
 def control_out_to_dac_volts(v_physical):
-    return (v_physical - DAC_SHIFT_OFFSET) / DAC_SHIFT_GAIN
+    return (v_physical - DAC_SHIFT_OFFSET - settings.CONTROL_OUT_OFFSET) / DAC_SHIFT_GAIN
 
 
 def dac_volts_to_control_out(v_dac):
-    return v_dac * DAC_SHIFT_GAIN + DAC_SHIFT_OFFSET
+    return v_dac * DAC_SHIFT_GAIN + DAC_SHIFT_OFFSET + settings.CONTROL_OUT_OFFSET

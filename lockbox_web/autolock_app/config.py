@@ -53,7 +53,12 @@ class Settings:
     DEVICE_NAME: str = ""
 
     # --- Calibration ---
-    ERROR_READ_OFFSET: float = 0.0   # V, added to the physical error reading (see channels.to_error)
+    # Physical volts; see channels.py. Read offsets are added to the converted reading;
+    # CONTROL_OUT_OFFSET = actual control out - requested (measured with it at 0).
+    ERROR_READ_OFFSET: float = 0.0
+    SLOW_OUTPUT_READ_OFFSET: float = 0.0
+    FAST_OUTPUT_READ_OFFSET: float = 0.0
+    CONTROL_OUT_OFFSET: float = 0.0
 
     # --- Safe range parameters ---
     SLOW_OUTPUT_SAFE_MIN: float = -10.0
