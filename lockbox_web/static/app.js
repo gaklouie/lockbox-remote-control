@@ -287,37 +287,6 @@ function drawScan() {
   // A fast sweep measures only the searched signal; the others aren't in the trace.
   const measured = (name) => name in scan.trace;
 
-  // Error on the left axis, DC error on its own right axis: a ~10 mV error
-  // signal would otherwise be flattened by a DC error of several volts.
-  // Candidates (and the smoothed curve) go on the axis of the signal searched.
-  // "Show DC error in plots" off hides DC error's trace, axis and lock-range bar;
-  // in DC error mode the candidate shading and numbers stay.
-  const showDc = s.SHOW_DC_ERROR;
-  const searchedAxis = zeroCrossing ? "left" : "right";
-  const smoothed = {label: `${page.signals[searched].label} (smoothed)`, color: "#000", x: scan.voltages,
-                    y: scan.smoothed, width: 1.2, axis: searchedAxis};
-  plots.scanErr.draw({
-    series: [
-      ...(measured("error") ? [{...line("error"), alpha: 0.6}] : []),
-      ...(showDc && measured("dc_err") ? [dcErrorSeries(line("dc_err"))] : []),
-      ...(zeroCrossing || showDc ? [smoothed] : []),
-    ],
-    rightAxis: dcErrorAxis(),
-    hLines: zeroCrossing ? [0] : [],
-    vLines: scan.candidates.map((c, i) => (zeroCrossing || showDc
-      ? {x: c.lock_voltage, y: markerY, label: String(i + 1), axis: searchedAxis}
-      : {x: c.lock_voltage, label: String(i + 1)})),   // no DC scale shown: number at the top
-    vSpans: zeroCrossing ? [] : scan.candidates.map((c) => ({start: c.start, end: c.end})),
-    rangeBars: !zeroCrossing && showDc ? [dcErrorLockRangeBar(s)] : [],
-    rightMargin,
-  });
-  const outputs = page.output_signals.filter(measured);
-  plots.scanOut.draw({
-    series: outputs.map(line), rangeBars: outBars, rightMargin,
-    message: outputs.length ? null
-      : `Outputs not measured: this fast sweep read only ${page.signals[searched].label}.`,
-  });
-
   // Rebuild the candidate list only when the scan changes, so a selection survives status updates.
   const list = $("candidates");
   if (list.dataset.scanTime !== String(scan.t)) {
@@ -330,6 +299,48 @@ function drawScan() {
       list.appendChild(option);
     });
   }
+  const selected = list.value === "" ? -1 : Number(list.value);   // highlighted on the plot
+
+  // Error on the left axis, DC error on its own right axis: a ~10 mV error
+  // signal would otherwise be flattened by a DC error of several volts.
+  // Candidates (and the smoothed curve) go on the axis of the signal searched.
+  // "Show DC error in plots" off hides DC error's trace, axis and lock-range bar;
+  // in DC error mode the candidate shading and numbers stay.
+  const showDc = s.SHOW_DC_ERROR;
+  const searchedAxis = zeroCrossing ? "left" : "right";
+  const smoothed = {label: `${page.signals[searched].label} (smoothed)`, color: "#000", x: scan.voltages,
+                    y: scan.smoothed, width: 1.2, axis: searchedAxis};
+  // Both plots span the scan's range even when they have nothing to draw.
+  const xRange = [Math.min(...scan.voltages), Math.max(...scan.voltages)];
+  const errSeries = [
+    ...(measured("error") ? [{...line("error"), alpha: 0.6}] : []),
+    ...(showDc && measured("dc_err") ? [dcErrorSeries(line("dc_err"))] : []),
+    ...(zeroCrossing || showDc ? [smoothed] : []),
+  ];
+  plots.scanErr.draw({
+    series: errSeries,
+    xRange,
+    message: errSeries.length ? null
+      : "DC error was the only signal measured, and it's hidden (Settings: Show DC error in plots).",
+    rightAxis: dcErrorAxis(),
+    hLines: zeroCrossing ? [0] : [],
+    vLines: scan.candidates.map((c, i) => ({
+      ...(zeroCrossing || showDc
+        ? {x: c.lock_voltage, y: markerY, axis: searchedAxis}
+        : {x: c.lock_voltage}),                 // no DC scale shown: number at the top
+      label: String(i + 1), highlight: i === selected,
+    })),
+    vSpans: zeroCrossing ? []
+      : scan.candidates.map((c, i) => ({start: c.start, end: c.end, highlight: i === selected})),
+    rangeBars: !zeroCrossing && showDc ? [dcErrorLockRangeBar(s)] : [],
+    rightMargin,
+  });
+  const outputs = page.output_signals.filter(measured);
+  plots.scanOut.draw({
+    series: outputs.map(line), rangeBars: outBars, rightMargin, xRange,
+    message: outputs.length ? null
+      : `Outputs not measured: this fast sweep read only ${page.signals[searched].label}.`,
+  });
 }
 
 function queueMonitorRedraw() {
@@ -413,6 +424,7 @@ $("run-scan").addEventListener("click", () => {
     adaptive: $("scan-adaptive").checked, mode: radioValue("scan-mode"), sign: radioValue("scan-sign"),
   });
 });
+$("candidates").addEventListener("change", drawScan);   // highlight the selected candidate
 $("lock-selected").addEventListener("click", () => {
   if ($("candidates").value === "") { showError("Select a lock candidate from the list first."); return; }
   send({cmd: "lock", index: Number($("candidates").value)});

@@ -7,13 +7,17 @@
 //                                    // axis: "right" (each axis is scaled to its own series)
 //     xRange: [min, max],            // optional; otherwise fitted to the data
 //     hLines: [0],                   // optional dashed horizontal lines (left axis)
-//     vLines: [{x, y, label, axis}], // optional dotted vertical lines with a labelled marker at y
-//     vSpans: [{start, end}],        // optional shaded vertical bands
+//     vLines: [{x, y, label, axis, highlight}], // optional dotted vertical lines with a labelled
+//                                    // marker at y; highlight: true draws one solid and in colour
+//     vSpans: [{start, end, highlight}],  // optional shaded vertical bands
 //     rangeBars: [{lo, hi, color, label, axis}],  // optional bars beside the right edge
 //     rightMargin: 92,               // optional fixed space (px) right of the plot area, so
 //                                    // plots stacked above each other line up
 //     message: "text",               // optional note centred in the plot area (e.g. no data)
 //   });
+
+const HIGHLIGHT = "#E07B00";                       // selected candidate
+const HIGHLIGHT_FILL = "rgba(224,123,0,0.30)";
 
 class LinePlot {
   constructor(canvas, options = {}) {
@@ -135,8 +139,8 @@ class LinePlot {
     ctx.rect(box.left, box.top, box.right - box.left, box.bottom - box.top);
     ctx.clip();
 
-    ctx.fillStyle = "rgba(120,120,120,0.18)";
     for (const span of data.vSpans || []) {
+      ctx.fillStyle = span.highlight ? HIGHLIGHT_FILL : "rgba(120,120,120,0.18)";
       ctx.fillRect(px(span.start), box.top, px(span.end) - px(span.start), box.bottom - box.top);
     }
     ctx.strokeStyle = "#000";
@@ -144,12 +148,14 @@ class LinePlot {
     for (const y of data.hLines || []) {
       ctx.beginPath(); ctx.moveTo(box.left, py(y)); ctx.lineTo(box.right, py(y)); ctx.stroke();
     }
-    ctx.strokeStyle = "#777";
-    ctx.setLineDash([2, 3]);
     for (const line of data.vLines || []) {
+      ctx.strokeStyle = line.highlight ? HIGHLIGHT : "#777";
+      ctx.lineWidth = line.highlight ? 2.5 : 1;
+      ctx.setLineDash(line.highlight ? [] : [2, 3]);
       ctx.beginPath(); ctx.moveTo(px(line.x), box.top); ctx.lineTo(px(line.x), box.bottom); ctx.stroke();
     }
     ctx.setLineDash([]);
+    ctx.lineWidth = 1;
 
     for (const s of series) {
       ctx.globalAlpha = s.alpha === undefined ? 1 : s.alpha;
@@ -179,8 +185,10 @@ class LinePlot {
     for (const line of data.vLines || []) {
       if (line.label === undefined) continue;
       const y = line.y === undefined ? box.top + 16 : yScale(line.axis)(line.y);
-      ctx.beginPath(); ctx.arc(px(line.x), y, 3.5, 0, 2 * Math.PI); ctx.fill();
-      ctx.fillText(line.label, px(line.x), y - 6);
+      ctx.fillStyle = line.highlight ? HIGHLIGHT : "#000";
+      ctx.font = `bold ${line.highlight ? 15 : 12}px system-ui, sans-serif`;
+      ctx.beginPath(); ctx.arc(px(line.x), y, line.highlight ? 5.5 : 3.5, 0, 2 * Math.PI); ctx.fill();
+      ctx.fillText(line.label, px(line.x), y - (line.highlight ? 8 : 6));
     }
     ctx.restore();
     ctx.font = "12px system-ui, sans-serif";
