@@ -84,6 +84,8 @@ class Settings:
     AUTOLOCK_MODE: str = "zero_crossing"   # "zero_crossing" or "dc_err_range"
     CROSSING_SIGN: str = "positive"        # "positive", "negative", or "both"
     MIN_CROSSING_SLOPE_FRACTION: float = 0.1  # ignore crossings shallower than this x the steepest one
+    MIN_CROSSING_SYMMETRY: float = 0.5        # ignore lopsided crossings: smaller lobe / larger lobe
+                                              # below this (e.g. between a PDH carrier and sideband)
     RESET_VOLTAGE_ON_FAILURE: float = 2.0  # control out, PHYSICAL volts
     PRIME_SETTLE_TIME: float = 0.1
     MONITOR_INTERVAL: float = 0.2          # fast: live display sampling rate (s)
@@ -141,10 +143,12 @@ MINIMUMS = {
     "LOCK_RETRY_DELAY": 0.0,
     "LIVE_MONITOR_TIME_SPAN": 1.0,
     "MIN_CROSSING_SLOPE_FRACTION": 0.0,
+    "MIN_CROSSING_SYMMETRY": 0.0,
 }
 
 MAXIMUMS = {
     "MIN_CROSSING_SLOPE_FRACTION": 1.0,
+    "MIN_CROSSING_SYMMETRY": 1.0,
 }
 
 

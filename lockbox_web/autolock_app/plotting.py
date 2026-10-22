@@ -132,7 +132,7 @@ def _plot_autolock_pass(ax, data, title):
     bar_handles = []
     if data["mode"] == "zero_crossing":
         ax.axhline(0, color="black", linewidth=0.8, linestyle="--")
-        for v, _ in data["crossings"]:
+        for v, *_ in data["crossings"]:
             ax.axvline(v, color="gray", linestyle=":", alpha=0.6)
     else:
         _, bar_handles = draw_safe_range_bars(ax, [(name, data["safe_min"], data["safe_max"])])

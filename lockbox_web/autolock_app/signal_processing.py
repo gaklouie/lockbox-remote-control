@@ -44,7 +44,18 @@ def smooth_signal(voltages, signal, window):
 
 
 def find_zero_crossings(voltages, signal):
-    """Returns a list of (crossing_voltage, slope) tuples, unfiltered by sign."""
+    """
+    Every zero crossing of `signal`, unfiltered, as (crossing_voltage, slope,
+    symmetry) tuples.
+
+    symmetry (0-1) compares the heights of the crossing's own two lobes as
+    smaller / larger (see _lobe_height). A clean dispersive crossing (e.g. the
+    PDH carrier) has equal, opposite lobes and scores near 1; a crossing
+    between a big lobe and a small one (e.g. between the carrier and a
+    sideband) scores low.
+    """
+    signal = np.asarray(signal, dtype=float)
+    indices = []      # i such that the crossing lies between samples i and i+1
     crossings = []
     for i in range(len(signal) - 1):
         y0, y1 = signal[i], signal[i + 1]
@@ -55,12 +66,43 @@ def find_zero_crossings(voltages, signal):
             frac = -y0 / (y1 - y0)
             x_cross = x0 + frac * (x1 - x0)
             slope = (y1 - y0) / (x1 - x0)
+            indices.append(i)
             crossings.append((float(x_cross), float(slope)))
         elif y1 == 0.0 and i + 2 < len(signal) and y0 * signal[i + 2] < 0.0:
             # Lands exactly on a sample (the signal passes through zero at i+1).
             slope = (signal[i + 2] - y0) / (voltages[i + 2] - voltages[i])
+            indices.append(i)
             crossings.append((float(voltages[i + 1]), float(slope)))
-    return crossings
+
+    # A lobe can extend at most to the neighbouring crossing (or the end of the scan).
+    bounds = [-1] + indices + [len(signal) - 1]
+    magnitude = np.abs(signal)
+    result = []
+    for k, (x_cross, slope) in enumerate(crossings):
+        left = _lobe_height(magnitude[bounds[k] + 1:bounds[k + 1] + 1][::-1])   # walking left
+        right = _lobe_height(magnitude[bounds[k + 1] + 1:bounds[k + 2] + 1])    # walking right
+        larger = max(left, right)
+        symmetry = float(min(left, right) / larger) if larger > 0 else 0.0
+        result.append((x_cross, slope, symmetry))
+    return result
+
+
+def _lobe_height(magnitudes):
+    """
+    Height of a crossing's lobe, from |signal| listed walking away from the
+    crossing: follow it up to its peak, and stop once it falls below half that
+    peak - the lobe has ended. This keeps a further feature of the same sign
+    (with no zero crossing in between, e.g. a neighbouring PDH sideband) from
+    being counted as part of the lobe, while small noise wiggles near the peak
+    don't end it early.
+    """
+    peak = 0.0
+    for value in magnitudes:
+        if value > peak:
+            peak = value
+        elif value < 0.5 * peak:
+            break
+    return float(peak)
 
 
 def filter_crossings_by_sign(crossings, sign):
@@ -81,13 +123,20 @@ def filter_crossings_by_slope(crossings, min_fraction):
     """
     if not crossings:
         return []
-    threshold = min_fraction * max(abs(slope) for _, slope in crossings)
+    threshold = min_fraction * max(abs(c[1]) for c in crossings)
     return [c for c in crossings if abs(c[1]) >= threshold]
 
 
-def find_crossing_candidates(voltages, smoothed, sign, min_slope_fraction):
-    """Zero crossings of `smoothed`, filtered by sign, then by slope relative to the steepest."""
+def find_crossing_candidates(voltages, smoothed, sign, min_slope_fraction, min_symmetry=0.0):
+    """
+    Zero crossings of `smoothed` as (voltage, slope, symmetry): those of the
+    wanted sign, at least min_symmetry symmetric, and at least
+    min_slope_fraction as steep as the steepest crossing still left.
+    Symmetry is filtered before slope, so a steep but lopsided crossing (e.g.
+    next to a PDH sideband) can't set the slope bar.
+    """
     crossings = filter_crossings_by_sign(find_zero_crossings(voltages, smoothed), sign)
+    crossings = [c for c in crossings if c[2] >= min_symmetry]
     return filter_crossings_by_slope(crossings, min_slope_fraction)
 
 

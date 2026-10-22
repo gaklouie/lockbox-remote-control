@@ -63,29 +63,33 @@ def _autolock_zero_crossing(log_fn):
     coarse_v, coarse_trace = _coarse_pass("error")
     coarse_smoothed = smooth_signal(coarse_v, coarse_trace["error"], settings.SMOOTHING_WINDOW)
     coarse_crossings = find_crossing_candidates(coarse_v, coarse_smoothed, settings.CROSSING_SIGN,
-                                                settings.MIN_CROSSING_SLOPE_FRACTION)
+                                                settings.MIN_CROSSING_SLOPE_FRACTION,
+                                                settings.MIN_CROSSING_SYMMETRY)
     coarse_data = {"mode": "zero_crossing", "signal_name": "error", "voltages": coarse_v,
                    "raw": coarse_trace["error"], "smoothed": coarse_smoothed,
                    "crossings": coarse_crossings, "chosen": None}
 
     if not coarse_crossings:
-        log_fn("No matching zero crossings found - autolock failed.")
+        log_fn(f"No matching zero crossings found (sign {settings.CROSSING_SIGN}, symmetry >= "
+               f"{settings.MIN_CROSSING_SYMMETRY}) - autolock failed.")
         save_autolock_scan_plot(session_id, coarse_data, None)
         set_control_out(settings.RESET_VOLTAGE_ON_FAILURE)
         return False
 
-    coarse_best_v, coarse_best_slope = max(coarse_crossings, key=lambda c: abs(c[1]))
+    coarse_best_v, coarse_best_slope, coarse_best_symmetry = max(coarse_crossings, key=lambda c: abs(c[1]))
     coarse_data["chosen"] = (coarse_best_v, coarse_best_slope)
     log_fn(f"Coarse pass found {len(coarse_crossings)} crossing(s); "
-           f"largest near {coarse_best_v:.4f} V. Refining...")
+           f"steepest near {coarse_best_v:.4f} V (symmetry {coarse_best_symmetry:.2f}). Refining...")
 
     fine_v, fine_trace = _fine_pass(coarse_best_v, coarse_step, "error")
     fine_smoothed = smooth_signal(fine_v, fine_trace["error"], settings.SMOOTHING_WINDOW)
+    # No symmetry check here: the fine window is only +/- one coarse step wide, so it
+    # cuts the lobes off; the crossing's symmetry was already checked in the coarse pass.
     fine_crossings = find_crossing_candidates(fine_v, fine_smoothed, settings.CROSSING_SIGN,
                                               settings.MIN_CROSSING_SLOPE_FRACTION)
 
     if fine_crossings:
-        lock_v, lock_slope = max(fine_crossings, key=lambda c: abs(c[1]))
+        lock_v, lock_slope, _ = max(fine_crossings, key=lambda c: abs(c[1]))
     else:
         lock_v, lock_slope = coarse_best_v, coarse_best_slope
 
