@@ -31,6 +31,7 @@ header {
   padding: 8px 12px;
 }
 header .identity, header .state { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+header .topic-line { flex-basis: 100%; font-size: 12px; margin-top: -4px; }
 
 .muted { color: var(--muted); }
 .mono { font-family: ui-monospace, Consolas, monospace; font-size: 12px; }

@@ -32,7 +32,9 @@ DAC_LOW_VOLTAGE = 0.0
 # --------------------------------------------------------------------------
 # MQTT
 # --------------------------------------------------------------------------
-MQTT_TOPIC = "experiment/sensor/ncc-1701/adc"
+# Readings go to <prefix>/<hostname>/<lockbox name> (built in telemetry.mqtt_topic),
+# scan points to that topic + "/scan".
+MQTT_TOPIC_PREFIX = "experiment/sensor"
 
 # --------------------------------------------------------------------------
 # Settings file location

@@ -14,6 +14,7 @@ Call init_mqtt() once at startup and close_mqtt() on shutdown.
 
 import json
 import os
+import re
 import socket
 import time
 from pathlib import Path
@@ -21,10 +22,30 @@ from pathlib import Path
 import paho.mqtt.client as mqtt
 from dotenv import load_dotenv
 
-from .config import MQTT_TOPIC, settings
+from .config import MQTT_TOPIC_PREFIX, settings
 from .hardware import lock_status
 
 mqtt_client = None
+
+
+def mqtt_topic():
+    """
+    The topic monitoring readings are published to:
+    experiment/sensor/<hostname>/<lockbox name>, e.g. host "NCC-1701" with
+    lockbox name "lattice laser" -> experiment/sensor/ncc-1701/lattice_laser.
+    The hostname is lowercased and loses any domain (".local"). In the name,
+    spaces - and "/", "+", "#", which MQTT treats specially - become "_".
+    With no name set, the last part is "unnamed".
+    """
+    host = socket.gethostname().split(".")[0].lower()
+    name = re.sub(r"[\s/+#]+", "_", settings.DEVICE_NAME.strip()) or "unnamed"
+    return f"{MQTT_TOPIC_PREFIX}/{host}/{name}"
+
+
+def scan_topic():
+    """Scan points go to a sub-topic, so subscribers of the main topic
+    (e.g. Home Assistant sensors) only see the steady monitoring readings."""
+    return mqtt_topic() + "/scan"
 
 
 def init_mqtt():
@@ -69,4 +90,5 @@ def publish_values(values, status, extra_fields=None):
     payload.update(values)
     if extra_fields:
         payload.update(extra_fields)
-    mqtt_client.publish(MQTT_TOPIC, json.dumps(payload))
+    topic = scan_topic() if status == "scanning" else mqtt_topic()
+    mqtt_client.publish(topic, json.dumps(payload))

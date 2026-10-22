@@ -149,6 +149,7 @@ def current_status():
     """Everything a browser needs to show the current state of the lockbox."""
     return {
         "hostname": socket.gethostname(),
+        "mqtt_topic": telemetry.mqtt_topic(),
         "name": settings.DEVICE_NAME,
         "settings": {name: getattr(settings, name) for name in
                      EDITABLE_FIELDS | {"CONSTANT_OUTPUT_VOLTAGE", "MANUAL_SCAN_MODE", "MANUAL_SCAN_SIGN"}},
@@ -418,7 +419,8 @@ def handle_command(message, who):
     elif cmd == "set_name":
         settings.DEVICE_NAME = str(message.get("name", "")).strip()
         save_settings()
-        hub.log(f"[{who}] Lockbox name set to {settings.DEVICE_NAME!r}.")
+        hub.log(f"[{who}] Lockbox name set to {settings.DEVICE_NAME!r}. "
+                f"MQTT topic is now {telemetry.mqtt_topic()} (scans: {telemetry.scan_topic()}).")
 
     else:
         raise CommandError(f"Unknown command: {cmd!r}")
@@ -434,6 +436,7 @@ async def lifespan(_app):
     hub.log(config.load_settings())
 
     telemetry.init_mqtt()
+    hub.log(f"Publishing readings to MQTT topic {telemetry.mqtt_topic()} (scans: {telemetry.scan_topic()}).")
     hardware.init_hardware()
     if settings.AUTOLOCK_ENGAGED:
         # An always-on service comes back the way it was left, e.g. after a reboot.
