@@ -83,7 +83,7 @@ function handleMessage(message) {
       break;
     case "ok":
       // The service accepted the settings this browser sent, so nothing here is unapplied any more.
-      if (["apply_settings", "engage", "autolock_now"].includes(message.cmd)) {
+      if (message.cmd === "apply_settings") {
         clearDirty();
         if (status) applyStatus(status);
       }
@@ -135,6 +135,10 @@ function applyStatus(newStatus) {
   autolock.textContent = status.engaged ? `Autolock: engaged (${status.mode_name})` : "Autolock: disengaged";
   autolock.className = "pill " + (status.engaged ? "good" : "");
   $("toggle-engage").textContent = status.engaged ? "Disengage Autolock" : "Engage Autolock";
+  const signs = {positive: "positive", negative: "negative", both: "either"};
+  $("autolock-uses").textContent = `Uses the saved settings: ${status.mode_name}`
+    + (status.settings.AUTOLOCK_MODE === "zero_crossing" ? `, ${signs[status.settings.CROSSING_SIGN]} crossing` : "")
+    + " (change on the Settings tab)";
 
   const busy = $("busy-status");
   const working = status.scanning ? "Manual scan running"
@@ -439,14 +443,25 @@ for (const id of ["stop-scan", "stop-scan-header"]) {
 }
 $("set-output").addEventListener("click", () => send({cmd: "set_output", voltage: $("output-voltage").value}));
 
-// Engaging or running autolock applies the settings form first;
-// the service refuses the whole command if any setting is invalid.
 $("apply-settings").addEventListener("click", () => send({cmd: "apply_settings", values: collectSettings()}));
+
+// Engage / Run Autolock Now (on the Scan & Lock tab) use the saved settings; they
+// don't apply the Settings form. Point out unapplied edits so nobody is surprised.
+function warnIfSettingsUnapplied() {
+  if (dirtyFields.size) {
+    showError("Note: the Settings tab has unapplied changes - autolock is using the saved settings. "
+              + "Click Apply & Save Settings to use them.");
+  }
+}
 $("toggle-engage").addEventListener("click", () => {
-  if (status.engaged) send({cmd: "engage", on: false});
-  else send({cmd: "engage", on: true, values: collectSettings()});
+  if (status.engaged) { send({cmd: "engage", on: false}); return; }
+  send({cmd: "engage", on: true});
+  warnIfSettingsUnapplied();
 });
-$("autolock-now").addEventListener("click", () => send({cmd: "autolock_now", values: collectSettings()}));
+$("autolock-now").addEventListener("click", () => {
+  send({cmd: "autolock_now"});
+  warnIfSettingsUnapplied();
+});
 
 function saveName() { send({cmd: "set_name", name: $("name-input").value}); $("name-input").blur(); }
 $("save-name").addEventListener("click", saveName);
