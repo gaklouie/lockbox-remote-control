@@ -32,13 +32,13 @@ def mqtt_topic():
     """
     The topic monitoring readings are published to:
     experiment/sensor/<hostname>/<lockbox name>, e.g. host "NCC-1701" with
-    lockbox name "lattice laser" -> experiment/sensor/ncc-1701/lattice_laser.
-    The hostname is lowercased and loses any domain (".local"). In the name,
-    spaces - and "/", "+", "#", which MQTT treats specially - become "_".
-    With no name set, the last part is "unnamed".
+    lockbox name "Lattice Laser" -> experiment/sensor/ncc-1701/lattice_laser.
+    Both parts are lowercased; the hostname loses any domain (".local"). In
+    the name, spaces - and "/", "+", "#", which MQTT treats specially - become
+    "_". With no name set, the last part is "unnamed".
     """
     host = socket.gethostname().split(".")[0].lower()
-    name = re.sub(r"[\s/+#]+", "_", settings.DEVICE_NAME.strip()) or "unnamed"
+    name = re.sub(r"[\s/+#]+", "_", settings.DEVICE_NAME.strip().lower()) or "unnamed"
     return f"{MQTT_TOPIC_PREFIX}/{host}/{name}"
 
 
