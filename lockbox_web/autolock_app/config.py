@@ -32,8 +32,8 @@ DAC_LOW_VOLTAGE = 0.0
 # --------------------------------------------------------------------------
 # MQTT
 # --------------------------------------------------------------------------
-# Readings go to <prefix>/<hostname>/<lockbox name> (built in telemetry.mqtt_topic),
-# scan points to that topic + "/scan".
+# Monitoring readings go to <prefix>/<hostname>/<lockbox name> (telemetry.mqtt_topic).
+# Scan points are not logged.
 MQTT_TOPIC_PREFIX = "experiment/sensor"
 
 # --------------------------------------------------------------------------

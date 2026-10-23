@@ -42,12 +42,6 @@ def mqtt_topic():
     return f"{MQTT_TOPIC_PREFIX}/{host}/{name}"
 
 
-def scan_topic():
-    """Scan points go to a sub-topic, so subscribers of the main topic
-    (e.g. Home Assistant sensors) only see the steady monitoring readings."""
-    return mqtt_topic() + "/scan"
-
-
 def init_mqtt():
     global mqtt_client
     # .env in the current directory first, then next to server.py.
@@ -74,21 +68,19 @@ def close_mqtt():
         mqtt_client.disconnect()
 
 
-def publish_values(values, status, extra_fields=None):
+def publish_values(values):
     """
-    Publish one JSON payload: timestamp, device name, status
-    ("monitoring"/"scanning"), lock_status (see hardware.lock_status), and the
-    readings. The device name falls back to the hostname if none has been
-    set, so every message says which Pi sent it.
+    Publish one monitoring reading as JSON: timestamp, device name, state
+    (always "monitoring" - kept so existing subscribers don't break),
+    lock_status (see hardware.lock_status) and the readings. The device name
+    falls back to the hostname if none has been set, so every message says
+    which Pi sent it. Scan points are not published.
     """
     payload = {
         "timestamp": time.time(),
         "device_name": settings.DEVICE_NAME or socket.gethostname(),
-        "state": status,
+        "state": "monitoring",
         "lock_status": lock_status(values),
     }
     payload.update(values)
-    if extra_fields:
-        payload.update(extra_fields)
-    topic = scan_topic() if status == "scanning" else mqtt_topic()
-    mqtt_client.publish(topic, json.dumps(payload))
+    mqtt_client.publish(mqtt_topic(), json.dumps(payload))

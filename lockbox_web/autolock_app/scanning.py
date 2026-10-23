@@ -27,7 +27,6 @@ from . import state
 from .channels import CHANNEL_CONVERTERS
 from .config import settings
 from .hardware import fast_adc, read_physical, read_signal_fast, set_control_out
-from .telemetry import publish_values
 
 class ScanStopped(Exception):
     """A sweep was stopped part-way: "Stop Scan" was pressed, or the program is shutting down."""
@@ -38,10 +37,11 @@ class ScanStopped(Exception):
 MAX_STEP_GROWTH = 2.0
 
 
-def measure_point(v, pass_tag, fast_signal=None):
+def measure_point(v, fast_signal=None):
     """
-    Set control out to v (physical volts), let it settle, read and publish.
+    Set control out to v (physical volts), let it settle, and read.
     Reads all four channels, or - in a fast sweep - only `fast_signal`.
+    Scan points are not logged to MQTT.
     """
     # Checked before every point, so a stop takes effect within one point.
     if state.stop_event.is_set():
@@ -55,7 +55,6 @@ def measure_point(v, pass_tag, fast_signal=None):
         values = {fast_signal: read_signal_fast(fast_signal, settings.NUM_SAMPLES_PER_POINT)}
     else:
         values = read_physical(num_samples=settings.NUM_SAMPLES_PER_POINT)
-    publish_values(values, "scanning", {"scan_voltage": float(v), "scan_pass": pass_tag})
     return values
 
 
@@ -71,7 +70,7 @@ def _fast_signal(track_signal):
     return track_signal if settings.FAST_SWEEP else None
 
 
-def uniform_sweep(v_min, v_max, num_points, track_signal, pass_tag, on_point=None):
+def uniform_sweep(v_min, v_max, num_points, track_signal, on_point=None):
     """
     Sweep num_points evenly spaced voltages. on_point(values, fraction_done)
     is called after each point. Returns (voltages, {name: readings array}).
@@ -82,14 +81,14 @@ def uniform_sweep(v_min, v_max, num_points, track_signal, pass_tag, on_point=Non
     readings = []
     with fast_adc(fast_signal):
         for i, v in enumerate(voltages):
-            values = measure_point(v, pass_tag, fast_signal)
+            values = measure_point(v, fast_signal)
             readings.append(values)
             if on_point:
                 on_point(values, (i + 1) / num_points)
     return _to_arrays(voltages, readings)
 
 
-def adaptive_sweep(v_min, v_max, track_signal, pass_tag, on_point=None):
+def adaptive_sweep(v_min, v_max, track_signal, on_point=None):
     """
     Sweep from v_min to v_max, choosing each step from the slope of
     `track_signal` over the previous step so the signal changes by about
@@ -97,17 +96,17 @@ def adaptive_sweep(v_min, v_max, track_signal, pass_tag, on_point=None):
     Same callback and return value as uniform_sweep().
     """
     with fast_adc(_fast_signal(track_signal)):
-        return _adaptive_sweep(v_min, v_max, track_signal, pass_tag, on_point)
+        return _adaptive_sweep(v_min, v_max, track_signal, on_point)
 
 
-def _adaptive_sweep(v_min, v_max, track_signal, pass_tag, on_point):
+def _adaptive_sweep(v_min, v_max, track_signal, on_point):
     fast_signal = _fast_signal(track_signal)
     max_step = settings.SCAN_MAX_STEP
     min_step = min(settings.SCAN_MIN_STEP, max_step)
     span = v_max - v_min
 
     v = v_min
-    values = measure_point(v, pass_tag, fast_signal)
+    values = measure_point(v, fast_signal)
     voltages, readings = [v], [values]
     if on_point:
         on_point(values, 0.0 if span > 0 else 1.0)
@@ -117,7 +116,7 @@ def _adaptive_sweep(v_min, v_max, track_signal, pass_tag, on_point):
         v_next = v + step
         if v_next > v_max - min_step / 2:  # land exactly on v_max, without a sliver of a last step
             v_next = v_max
-        values = measure_point(v_next, pass_tag, fast_signal)
+        values = measure_point(v_next, fast_signal)
         voltages.append(v_next)
         readings.append(values)
         if on_point:
@@ -131,10 +130,10 @@ def _adaptive_sweep(v_min, v_max, track_signal, pass_tag, on_point):
     return _to_arrays(voltages, readings)
 
 
-def sweep(v_min, v_max, num_points, track_signal, pass_tag, on_point=None, adaptive=None):
+def sweep(v_min, v_max, num_points, track_signal, on_point=None, adaptive=None):
     """Adaptive or uniform sweep depending on `adaptive` (default: the ADAPTIVE_SCAN setting)."""
     if adaptive is None:
         adaptive = settings.ADAPTIVE_SCAN
     if adaptive:
-        return adaptive_sweep(v_min, v_max, track_signal, pass_tag, on_point)
-    return uniform_sweep(v_min, v_max, num_points, track_signal, pass_tag, on_point)
+        return adaptive_sweep(v_min, v_max, track_signal, on_point)
+    return uniform_sweep(v_min, v_max, num_points, track_signal, on_point)

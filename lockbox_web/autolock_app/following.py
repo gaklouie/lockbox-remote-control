@@ -96,7 +96,7 @@ def _find_again(crossing):
     lo = max(settings.SCAN_MIN_VOLTAGE, crossing.voltage - reach)
     hi = min(settings.SCAN_MAX_VOLTAGE, crossing.voltage + reach)
     points = int(np.clip((hi - lo) / max(span / 10, CONTROL_OUT_STEP), 20, 400)) + 1
-    voltages, trace = uniform_sweep(lo, hi, points, SIGNAL, "follow")
+    voltages, trace = uniform_sweep(lo, hi, points, SIGNAL)
     smoothed = smooth_signal(voltages, trace[SIGNAL], settings.SMOOTHING_WINDOW)
     sign = "positive" if crossing.slope > 0 else "negative"
     found = [c for c in find_crossing_candidates(voltages, smoothed, sign, 0.0, settings.MIN_CROSSING_SYMMETRY)

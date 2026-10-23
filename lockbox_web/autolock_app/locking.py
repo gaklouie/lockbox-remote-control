@@ -37,15 +37,14 @@ def _send_reading(values, _fraction_done):
 def _coarse_pass(track_signal):
     """Full-range sweep: adaptive or uniform per the ADAPTIVE_SCAN setting."""
     return sweep(settings.SCAN_MIN_VOLTAGE, settings.SCAN_MAX_VOLTAGE, settings.NUM_COARSE_POINTS,
-                 track_signal, "coarse", on_point=_send_reading)
+                 track_signal, on_point=_send_reading)
 
 
 def _fine_pass(center, coarse_step, track_signal):
     """Uniform sweep of +/- one coarse step around `center`, clipped to the scan range."""
     fine_min = max(settings.SCAN_MIN_VOLTAGE, center - coarse_step)
     fine_max = min(settings.SCAN_MAX_VOLTAGE, center + coarse_step)
-    return uniform_sweep(fine_min, fine_max, settings.NUM_FINE_POINTS, track_signal, "fine",
-                         on_point=_send_reading)
+    return uniform_sweep(fine_min, fine_max, settings.NUM_FINE_POINTS, track_signal, on_point=_send_reading)
 
 
 def _coarse_step():

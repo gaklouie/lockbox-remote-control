@@ -114,7 +114,6 @@ function applyStatus(newStatus) {
   $("hostname").textContent = status.hostname;
   document.title = `Lockbox - ${status.name || status.hostname}`;
   $("mqtt-topic").textContent = status.mqtt_topic;
-  $("mqtt-topic-scan").textContent = `${status.mqtt_topic}/scan`;
   if (document.activeElement !== $("name-input")) $("name-input").value = status.name;
 
   // PID: on when B/C/D are LOW; off (caps shorted, PID blocked) when they're HIGH.

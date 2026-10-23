@@ -420,7 +420,7 @@ def handle_command(message, who):
         settings.DEVICE_NAME = str(message.get("name", "")).strip()
         save_settings()
         hub.log(f"[{who}] Lockbox name set to {settings.DEVICE_NAME!r}. "
-                f"MQTT topic is now {telemetry.mqtt_topic()} (scans: {telemetry.scan_topic()}).")
+                f"MQTT topic is now {telemetry.mqtt_topic()}.")
 
     else:
         raise CommandError(f"Unknown command: {cmd!r}")
@@ -436,7 +436,7 @@ async def lifespan(_app):
     hub.log(config.load_settings())
 
     telemetry.init_mqtt()
-    hub.log(f"Publishing readings to MQTT topic {telemetry.mqtt_topic()} (scans: {telemetry.scan_topic()}).")
+    hub.log(f"Publishing readings to MQTT topic {telemetry.mqtt_topic()}.")
     hardware.init_hardware()
     if settings.AUTOLOCK_ENGAGED:
         # An always-on service comes back the way it was left, e.g. after a reboot.

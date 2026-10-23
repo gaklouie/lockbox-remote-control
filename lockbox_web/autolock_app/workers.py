@@ -42,7 +42,7 @@ def monitor_loop():
 
         now = time.time()
         if now - last_log_time >= settings.LOG_INTERVAL:
-            publish_values(values, "monitoring")
+            publish_values(values)
             last_log_time = now
 
         if state.autolock_engaged.is_set():
@@ -125,7 +125,7 @@ def run_manual_scan(v_min, v_max, num_points, mode, crossing_sign, adaptive):
         track_signal = "error" if mode == "zero_crossing" else "dc_err"
         started = time.time()
         voltages, trace = sweep(
-            v_min, v_max, num_points, track_signal, "manual", adaptive=adaptive,
+            v_min, v_max, num_points, track_signal, adaptive=adaptive,
             on_point=lambda _values, fraction: state.event_queue.put(("scan_progress", fraction)),
         )
         duration = time.time() - started
