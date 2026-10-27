@@ -83,7 +83,8 @@ browser that connects later sees the current picture straight away.
 ### Commands from a browser
 
 `{"cmd": ...}` with: `run_scan`, `lock` (candidate index), `release`,
-`set_output`, `apply_settings`, `engage` (on/off), `autolock_now`,
+`set_output`, `apply_settings`, `engage` (on/off; on also releases the PID),
+`autolock_now` ("Run Autolock Once"), `test_sound`,
 `set_name`. The service checks every command itself (valid values, nothing
 else sweeping control out), so two browsers cannot start conflicting actions.
 

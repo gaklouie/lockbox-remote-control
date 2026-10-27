@@ -445,7 +445,7 @@ $("set-output").addEventListener("click", () => send({cmd: "set_output", voltage
 $("apply-settings").addEventListener("click", () => send({cmd: "apply_settings", values: collectSettings()}));
 $("test-sound").addEventListener("click", () => send({cmd: "test_sound"}));
 
-// Engage / Run Autolock Now (on the Scan & Lock tab) use the saved settings; they
+// Engage / Run Autolock Once (on the Scan & Lock tab) use the saved settings; they
 // don't apply the Settings form. Point out unapplied edits so nobody is surprised.
 function warnIfSettingsUnapplied() {
   if (dirtyFields.size) {

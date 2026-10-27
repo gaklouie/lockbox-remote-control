@@ -398,6 +398,10 @@ def handle_command(message, who):
         if message.get("on"):
             _require_free()
             _apply_settings(message.get("values", {}))  # refuse to engage with invalid settings
+            # Release the PID first, so autolock judges the outputs with the PID running: if
+            # they leave their safe range, the trigger starts a relock.
+            hardware.restart_pid()
+            hub.log(f"[{who}] PID released (B, C, D set LOW) for autolock.")
             _set_engaged(True)
         else:
             _set_engaged(False)
