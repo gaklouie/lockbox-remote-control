@@ -38,7 +38,7 @@ SSH back in after the reboot.
 
 ```bash
 sudo apt update
-sudo apt install -y git i2c-tools
+sudo apt install -y git i2c-tools mpg123
 ```
 
 ### 1.3 Check the DAC and ADC are wired up
@@ -275,6 +275,16 @@ update, also refresh the page in each open browser.
   live data, and a change made by one shows up for all.
 - **Doesn't start by itself after the Pi reboots.** Start it again with one of
   the commands above.
+- **Relock sound.** Tick "Play sound on successful autolock" in Settings to
+  play `static/laser-relocked.mp3` through the 3.5 mm jack whenever autolock
+  locks. "Play test sound" (next to Apply) plays it on demand. It needs
+  `mpg123` (installed in step 1.2). The output device defaults to
+  `plughw:CARD=Headphones`, the jack on a Pi 3/4; leave it blank to use the
+  Pi's default output instead. To set the volume of the jack:
+
+  ```bash
+  alsamixer -c Headphones
+  ```
 
 ---
 
@@ -289,3 +299,5 @@ update, also refresh the page in each open browser.
 | The page doesn't load in the browser | Make sure the "running" line has appeared. Use the numeric address rather than `.local`, and check your computer is on the same network as the Pi. |
 | The page says **"Disconnected - retrying"** | The service stopped or restarted. Check it with `pgrep -af "python server.py"` and look at `server.log`. The page reconnects by itself once the service is back. |
 | A button is greyed out | Hover over it: a scan is running, or autolock is engaged (disengage it first). |
+| `Relock sound failed` / no sound | Run `aplay -l` to list the Pi's sound cards. Put the jack's card name in "Sound output device" as `plughw:CARD=<name>`, or leave it blank for the default output. Check the volume with `alsamixer`. |
+| `mpg123 is not installed` | `sudo apt install -y mpg123` |

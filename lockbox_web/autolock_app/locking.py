@@ -25,6 +25,7 @@ from .following import FollowFailed, follow_crossing
 from .hardware import restart_pid, set_control_out, short_caps_and_block_pid
 from .plotting import save_autolock_scan_plot
 from .scanning import ScanStopped, sweep, uniform_sweep
+from .sound import play_relock_sound
 from .signal_processing import find_crossing_candidates, find_safe_range_segments, smooth_signal
 
 
@@ -184,8 +185,12 @@ def autolock_once(log_fn=state.log):
     state.stop_scan_requested.clear()
     try:
         if settings.AUTOLOCK_MODE == "dc_err_range":
-            return _autolock_dc_err_range(log_fn)
-        return _autolock_zero_crossing(log_fn)
+            locked = _autolock_dc_err_range(log_fn)
+        else:
+            locked = _autolock_zero_crossing(log_fn)
+        if locked:
+            play_relock_sound(log_fn)      # only if enabled in Settings; plays in the background
+        return locked
     except ScanStopped as exc:
         # Control out stays where the sweep stopped; B/C/D stay HIGH (PID blocked).
         log_fn(f"Autolock scan {exc}. B/C/D left high (PID off).")

@@ -53,6 +53,7 @@ from autolock_app.following import FollowFailed, follow_crossing
 from autolock_app.locking import autolock_once
 from autolock_app.scanning import ScanStopped
 from autolock_app.signal_processing import Crossing
+from autolock_app.sound import play_relock_sound
 from autolock_app.plotting import SIGNAL_COLORS
 from autolock_app.workers import monitor_loop, run_manual_scan
 
@@ -115,6 +116,8 @@ SETTINGS_GROUPS = [
         ("AUTOLOCK_RETRIES", "Autolock retries after a failure"),
         ("SAVE_SCAN_PLOTS", "Save autolock scan plots"),
         ("SCAN_PLOT_DIR", "Scan plot directory"),
+        ("PLAY_RELOCK_SOUND", "Play sound on successful autolock"),
+        ("RELOCK_SOUND_DEVICE", "Sound output device (blank = system default)"),
     ]),
 ]
 EDITABLE_FIELDS = {name for _title, fields in SETTINGS_GROUPS for name, _label in fields}
@@ -415,6 +418,10 @@ def handle_command(message, who):
         if stopping_autolock and state.autolock_engaged.is_set():
             # Otherwise the monitor loop would start a new autolock scan a moment later.
             _set_engaged(False)
+
+    elif cmd == "test_sound":
+        hub.log(f"[{who}] Playing the relock sound...")
+        play_relock_sound(hub.log, force=True)
 
     elif cmd == "set_name":
         settings.DEVICE_NAME = str(message.get("name", "")).strip()

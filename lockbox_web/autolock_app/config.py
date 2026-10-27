@@ -115,6 +115,8 @@ class Settings:
     SHOW_DC_ERROR: bool = True             # plot DC error (scan and live monitor error plots)
     SAVE_SCAN_PLOTS: bool = True
     SCAN_PLOT_DIR: str = "scan_plots"
+    PLAY_RELOCK_SOUND: bool = False                      # play static/laser-relocked.mp3 after a successful autolock
+    RELOCK_SOUND_DEVICE: str = "plughw:CARD=Headphones"  # ALSA device (3.5 mm jack on a Pi 3/4); "" = system default
 
     # --- Scan tab "constant output" entry (control out, PHYSICAL volts) ---
     CONSTANT_OUTPUT_VOLTAGE: float = 2.0
